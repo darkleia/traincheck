@@ -26,8 +26,8 @@ export MASTER_PORT=29500
 srun --container-image=nvcr.io/nvidia/pytorch:24.01-py3 \
     --gpu-bind=none \
     torchrun \
-        --nnodes="$SLURM_NNODES" \
-        --nproc-per-node="$SLURM_GPUS_ON_NODE" \
+        --nnodes=8 \
+        --nproc-per-node=8 \
         --node-rank="$SLURM_NODEID" \
         --rdzv-id="$SLURM_JOB_ID" \
         --rdzv-backend=c10d \
