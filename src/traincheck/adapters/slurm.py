@@ -16,7 +16,7 @@ from typing import Optional
 from traincheck.adapters.deepspeed import adapt_deepspeed
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, resolved_or_absent
-from traincheck.utils import parse_version
+from traincheck.utils import parse_version, safe_int
 from traincheck.validator import JobSpec
 
 _SBATCH_DIRECTIVE_RE = re.compile(r"^\s*#SBATCH\s+--([\w-]+)=(\S+)\s*$")
@@ -33,8 +33,8 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     directives = _parse_sbatch_directives(text)
     spec = JobSpec()
 
-    spec.nodes = resolved_or_absent(_as_int(directives.get("nodes")), "sbatch")
-    spec.gpus_per_node = resolved_or_absent(_as_int(directives.get("gpus-per-node")), "sbatch")
+    spec.nodes = resolved_or_absent(safe_int(directives.get("nodes")), "sbatch")
+    spec.gpus_per_node = resolved_or_absent(safe_int(directives.get("gpus-per-node")), "sbatch")
     spec.gpu_type = resolved_or_absent(directives.get("constraint"), "sbatch")
     spec.walltime = resolved_or_absent(directives.get("time"), "sbatch")
     spec.partition = resolved_or_absent(directives.get("partition"), "sbatch")
@@ -47,6 +47,7 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     nproc_per_node = launcher.get("nproc_per_node")
     world_size = nnodes * nproc_per_node if nnodes is not None and nproc_per_node is not None else None
     spec.world_size = resolved_or_absent(world_size, "shell")
+    spec.launcher_nproc_per_node = resolved_or_absent(nproc_per_node, "shell")
 
     module_loads = shell["module_loads"]
     spec.cuda_version = resolved_or_absent(_module_version(module_loads, "cuda"), "shell")
@@ -56,9 +57,9 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
 
     env_vars = shell["env_vars"]
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), "shell")
-    spec.nccl_ib_disable = resolved_or_absent(_as_int(env_vars.get("NCCL_IB_DISABLE")), "shell")
+    spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), "shell")
     spec.nccl_net_gdr_level = resolved_or_absent(
-        _as_int(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell"
+        safe_int(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell"
     )
 
     framework_config = shell["framework_config"]
@@ -125,12 +126,3 @@ def _module_version(module_loads: list, name: str) -> Optional[str]:
         if module.startswith(prefix):
             return module[len(prefix):]
     return None
-
-
-def _as_int(value: Optional[str]) -> Optional[int]:
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None

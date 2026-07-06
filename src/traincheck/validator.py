@@ -37,6 +37,7 @@ class JobSpec:
     partition: Field = field(default_factory=_unset)
     # Launcher
     world_size: Field = field(default_factory=_unset)
+    launcher_nproc_per_node: Field = field(default_factory=_unset)
     # Framework / Software
     framework_name: Field = field(default_factory=_unset)
     framework_version: Field = field(default_factory=_unset)
@@ -97,6 +98,7 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         walltime=_resolved(cluster.get("walltime")),
         partition=_resolved(cluster.get("partition")),
         world_size=_resolved(None),
+        launcher_nproc_per_node=_resolved(None),
         framework_name=_resolved(framework.get("name")),
         framework_version=_resolved(parse_version(framework.get("version"))),
         nccl_version=_resolved(parse_version(nccl.get("version"))),

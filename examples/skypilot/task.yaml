@@ -6,6 +6,7 @@ resources:
   region: us-east-1
   disk_size: 512
   use_spot: false
+  image_id: docker:nvcr.io/nvidia/pytorch:24.01-py3
 
 num_nodes: 8
 

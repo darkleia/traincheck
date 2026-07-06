@@ -17,6 +17,7 @@ import yaml
 
 from traincheck.extractors.image import extract_image
 from traincheck.ir import Field, resolved_or_absent
+from traincheck.utils import load_yaml_file, safe_int
 from traincheck.validator import JobSpec
 
 _HOST_ENV_REASON = "host fact, not in any file"
@@ -30,7 +31,7 @@ _REPLICA_SPEC_KEYS = {
 
 
 def adapt_k8s(path: str, base_dir: str) -> JobSpec:
-    doc = _load_yaml(Path(path))
+    doc = load_yaml_file(Path(path))
     pod_spec, total_replicas = _pod_spec_and_total_replicas(doc)
     container = (pod_spec.get("containers") or [{}])[0]
     source = "k8s"
@@ -55,8 +56,8 @@ def adapt_k8s(path: str, base_dir: str) -> JobSpec:
     # Software: env vars straight off the container
     env_vars = _container_env(container)
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), source)
-    spec.nccl_ib_disable = resolved_or_absent(_as_int(env_vars.get("NCCL_IB_DISABLE")), source)
-    spec.nccl_net_gdr_level = resolved_or_absent(_as_int(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
+    spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), source)
+    spec.nccl_net_gdr_level = resolved_or_absent(safe_int(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
 
     # Image
     image_ref = container.get("image")
@@ -111,7 +112,7 @@ def _from_volcano_tasks(tasks: list) -> tuple:
 
 def _gpu_limit(container: dict) -> Optional[int]:
     limits = (container.get("resources") or {}).get("limits") or {}
-    return _as_int(limits.get("nvidia.com/gpu"))
+    return safe_int(limits.get("nvidia.com/gpu"))
 
 
 def _container_env(container: dict) -> dict:
@@ -162,7 +163,7 @@ def _find_configmap_manifest(base_dir: Path, name: str) -> Optional[dict]:
     if not base_dir.is_dir():
         return None
     for candidate in sorted(base_dir.glob("*.yaml")) + sorted(base_dir.glob("*.yml")):
-        doc = _load_yaml(candidate)
+        doc = load_yaml_file(candidate)
         if doc.get("kind") == "ConfigMap" and (doc.get("metadata") or {}).get("name") == name:
             return doc
     return None
@@ -181,22 +182,4 @@ def _safe_yaml(text: str) -> Any:
     try:
         return yaml.safe_load(text)
     except yaml.YAMLError:
-        return None
-
-
-def _load_yaml(path: Path) -> dict:
-    try:
-        text = path.read_text()
-    except OSError:
-        return {}
-    doc = _safe_yaml(text)
-    return doc if isinstance(doc, dict) else {}
-
-
-def _as_int(value: Any) -> Optional[int]:
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
         return None
