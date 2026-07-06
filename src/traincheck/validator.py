@@ -64,6 +64,13 @@ class JobSpec:
     kernel_version: Field = field(default_factory=_unset)
     ofed_version: Field = field(default_factory=_unset)
     peermem_loaded: Field = field(default_factory=_unset)
+    # Placement
+    node_selector: Field = field(default_factory=_unset)
+    scheduler_name: Field = field(default_factory=_unset)
+    affinity: Field = field(default_factory=_unset)
+    tolerations: Field = field(default_factory=_unset)
+    # Image
+    image_pin_status: Field = field(default_factory=_unset)
 
     meta: Meta = field(default_factory=Meta)
 
@@ -110,6 +117,11 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         kernel_version=_resolved(None),
         ofed_version=_resolved(None),
         peermem_loaded=_resolved(None),
+        node_selector=_resolved(None),
+        scheduler_name=_resolved(None),
+        affinity=_resolved(None),
+        tolerations=_resolved(None),
+        image_pin_status=_resolved(None),
     )
 
 class Validator:

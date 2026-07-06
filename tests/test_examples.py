@@ -67,6 +67,13 @@ def test_k8s_configmap_exists_and_parses_as_yaml():
     assert "NCCL_ALGO" in doc["data"]
 
 
+def test_k8s_model_config_configmap_exists_and_parses_as_yaml():
+    doc = yaml.safe_load(_read_non_empty(K8S_DIR / "model-config.yaml"))
+    assert doc["kind"] == "ConfigMap"
+    assert doc["metadata"]["name"] == "model-config"
+    assert "model.yaml" in doc["data"]
+
+
 def test_k8s_dockerfile_exists_and_is_non_empty():
     text = _read_non_empty(K8S_DIR / "Dockerfile")
     assert text.startswith("FROM")

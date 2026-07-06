@@ -15,9 +15,16 @@ spec:
       restartPolicy: OnFailure
       template:
         spec:
+          schedulerName: volcano
+          nodeSelector:
+            gpu-type: h100
+          volumes:
+            - name: model-config
+              configMap:
+                name: model-config
           containers:
             - name: pytorch
-              image: llm-train:24.01
+              image: nvcr.io/nvidia/pytorch:24.01-py3
               command:
                 - torchrun
                 - --nnodes=8
@@ -25,9 +32,17 @@ spec:
                 - train.py
                 - --deepspeed
                 - ds_config.json
+              env:
+                - name: NCCL_ALGO
+                  value: Ring
+                - name: NCCL_IB_DISABLE
+                  value: "0"
               envFrom:
                 - configMapRef:
                     name: nccl-tuning
+              volumeMounts:
+                - name: model-config
+                  mountPath: /config
               resources:
                 limits:
                   nvidia.com/gpu: 8
@@ -38,9 +53,16 @@ spec:
       restartPolicy: OnFailure
       template:
         spec:
+          schedulerName: volcano
+          nodeSelector:
+            gpu-type: h100
+          volumes:
+            - name: model-config
+              configMap:
+                name: model-config
           containers:
             - name: pytorch
-              image: llm-train:24.01
+              image: nvcr.io/nvidia/pytorch:24.01-py3
               command:
                 - torchrun
                 - --nnodes=8
@@ -48,9 +70,17 @@ spec:
                 - train.py
                 - --deepspeed
                 - ds_config.json
+              env:
+                - name: NCCL_ALGO
+                  value: Ring
+                - name: NCCL_IB_DISABLE
+                  value: "0"
               envFrom:
                 - configMapRef:
                     name: nccl-tuning
+              volumeMounts:
+                - name: model-config
+                  mountPath: /config
               resources:
                 limits:
                   nvidia.com/gpu: 8

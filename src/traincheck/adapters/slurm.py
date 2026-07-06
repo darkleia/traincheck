@@ -11,11 +11,11 @@ unknown and routed to `meta.unresolved` for a follow-up check.
 
 import os
 import re
-from typing import Any, Optional
+from typing import Optional
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
 from traincheck.extractors.shell import extract_shell
-from traincheck.ir import Field
+from traincheck.ir import Field, resolved_or_absent
 from traincheck.utils import parse_version
 from traincheck.validator import JobSpec
 
@@ -33,11 +33,11 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     directives = _parse_sbatch_directives(text)
     spec = JobSpec()
 
-    spec.nodes = _resolved_or_absent(_as_int(directives.get("nodes")), "sbatch")
-    spec.gpus_per_node = _resolved_or_absent(_as_int(directives.get("gpus-per-node")), "sbatch")
-    spec.gpu_type = _resolved_or_absent(directives.get("constraint"), "sbatch")
-    spec.walltime = _resolved_or_absent(directives.get("time"), "sbatch")
-    spec.partition = _resolved_or_absent(directives.get("partition"), "sbatch")
+    spec.nodes = resolved_or_absent(_as_int(directives.get("nodes")), "sbatch")
+    spec.gpus_per_node = resolved_or_absent(_as_int(directives.get("gpus-per-node")), "sbatch")
+    spec.gpu_type = resolved_or_absent(directives.get("constraint"), "sbatch")
+    spec.walltime = resolved_or_absent(directives.get("time"), "sbatch")
+    spec.partition = resolved_or_absent(directives.get("partition"), "sbatch")
 
     body = _strip_sbatch_lines(text)
     shell = extract_shell(body, base_dir=base_dir)
@@ -46,18 +46,18 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     nnodes = launcher.get("nnodes")
     nproc_per_node = launcher.get("nproc_per_node")
     world_size = nnodes * nproc_per_node if nnodes is not None and nproc_per_node is not None else None
-    spec.world_size = _resolved_or_absent(world_size, "shell")
+    spec.world_size = resolved_or_absent(world_size, "shell")
 
     module_loads = shell["module_loads"]
-    spec.cuda_version = _resolved_or_absent(_module_version(module_loads, "cuda"), "shell")
-    spec.nccl_version = _resolved_or_absent(
+    spec.cuda_version = resolved_or_absent(_module_version(module_loads, "cuda"), "shell")
+    spec.nccl_version = resolved_or_absent(
         parse_version(_module_version(module_loads, "nccl")), "shell"
     )
 
     env_vars = shell["env_vars"]
-    spec.nccl_algo = _resolved_or_absent(env_vars.get("NCCL_ALGO"), "shell")
-    spec.nccl_ib_disable = _resolved_or_absent(_as_int(env_vars.get("NCCL_IB_DISABLE")), "shell")
-    spec.nccl_net_gdr_level = _resolved_or_absent(
+    spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), "shell")
+    spec.nccl_ib_disable = resolved_or_absent(_as_int(env_vars.get("NCCL_IB_DISABLE")), "shell")
+    spec.nccl_net_gdr_level = resolved_or_absent(
         _as_int(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell"
     )
 
@@ -134,9 +134,3 @@ def _as_int(value: Optional[str]) -> Optional[int]:
         return int(value)
     except ValueError:
         return None
-
-
-def _resolved_or_absent(value: Any, source: str) -> Field:
-    if value is None:
-        return Field(value=None, status="absent", source=source)
-    return Field(value=value, status="resolved", source=source, confidence=1.0)

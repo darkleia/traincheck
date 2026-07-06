@@ -21,3 +21,13 @@ class Field:
     def __post_init__(self) -> None:
         if self.status == "unknown" and not self.reason:
             raise ValueError("Field(status='unknown') requires a non-empty reason")
+
+def resolved_or_absent(value: Any, source: str = "", confidence: float = 1.0) -> Field:
+    """Wrap a value a parser looked for: absent if it wasn't there, resolved
+    (at the given confidence) otherwise. Never "unknown" - that status is
+    reserved for values a parser tried and failed to determine, not ones
+    that were simply never set.
+    """
+    if value is None:
+        return Field(value=None, status="absent", source=source)
+    return Field(value=value, status="resolved", source=source, confidence=confidence)

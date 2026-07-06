@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-config
+  namespace: ml-team
+data:
+  model.yaml: |
+    model:
+      name: llama
+      size_billion_params: 70
