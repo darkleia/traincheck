@@ -72,12 +72,37 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
         spec.train_micro_batch_size_per_gpu = ds_fields["train_micro_batch_size_per_gpu"]
         spec.gradient_accumulation_steps = ds_fields["gradient_accumulation_steps"]
 
+    _derive_data_parallel(spec)
+
     for name in _HOST_ENV_FIELDS:
         host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)
         setattr(spec, name, host_field)
         spec.meta.unresolved.append(host_field)
 
     return spec
+
+
+def _derive_data_parallel(spec: JobSpec) -> None:
+    """data_parallel = world_size / (tensor_parallel * pipeline_parallel).
+
+    The DeepSpeed adapter always leaves data_parallel absent, since a
+    DeepSpeed config alone never carries world size. By this point in the
+    Slurm+shell pipeline, world_size and tp/pp (if a DeepSpeed config was
+    merged in) may both be resolved, so we can derive it here.
+    """
+    if spec.world_size.status != "resolved":
+        return
+    if spec.tensor_parallel.status != "resolved" or spec.pipeline_parallel.status != "resolved":
+        return
+
+    tp = spec.tensor_parallel.value
+    pp = spec.pipeline_parallel.value
+    if not tp or not pp:
+        return
+
+    spec.data_parallel = Field(
+        value=spec.world_size.value // (tp * pp), status="resolved", source="derived", confidence=1.0
+    )
 
 
 def _parse_sbatch_directives(text: str) -> dict:

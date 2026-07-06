@@ -119,5 +119,7 @@ class Validator:
             self.engine.register(rule)
 
     def validate(self, config: dict[str, Any]) -> Result:
-        context = parse_config(config)
-        return self.engine.check(vars(context))
+        return self.validate_spec(parse_config(config))
+
+    def validate_spec(self, spec: JobSpec) -> Result:
+        return self.engine.check(vars(spec))
