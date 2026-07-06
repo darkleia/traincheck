@@ -1,0 +1,58 @@
+apiVersion: kubeflow.org/v1
+kind: PyTorchJob
+metadata:
+  name: llm-train
+  namespace: ml-team
+spec:
+  elasticPolicy:
+    minReplicas: 1
+    maxReplicas: 8
+    maxRestarts: 3
+    rdzvBackend: c10d
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: llm-train:24.01
+              command:
+                - torchrun
+                - --nnodes=8
+                - --nproc-per-node=8
+                - train.py
+                - --deepspeed
+                - ds_config.json
+              envFrom:
+                - configMapRef:
+                    name: nccl-tuning
+              resources:
+                limits:
+                  nvidia.com/gpu: 8
+                  cpu: "96"
+                  memory: 1024Gi
+    Worker:
+      replicas: 7
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: llm-train:24.01
+              command:
+                - torchrun
+                - --nnodes=8
+                - --nproc-per-node=8
+                - train.py
+                - --deepspeed
+                - ds_config.json
+              envFrom:
+                - configMapRef:
+                    name: nccl-tuning
+              resources:
+                limits:
+                  nvidia.com/gpu: 8
+                  cpu: "96"
+                  memory: 1024Gi

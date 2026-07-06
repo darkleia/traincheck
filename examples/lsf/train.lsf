@@ -1,0 +1,20 @@
+#!/bin/bash
+#BSUB -J llm-train
+#BSUB -n 64
+#BSUB -R "span[ptile=8]"
+#BSUB -gpu "num=8:mode=exclusive_process"
+#BSUB -q gpu
+#BSUB -W 24:00
+#BSUB -o llm-train.%J.out
+#BSUB -e llm-train.%J.err
+
+module load cuda/12.2
+module load nccl/2.19
+
+export NCCL_ALGO=Ring
+export NCCL_IB_DISABLE=0
+
+blaunch torchrun \
+  --nnodes=8 \
+  --nproc-per-node=8 \
+  train.py --deepspeed ds_config.json

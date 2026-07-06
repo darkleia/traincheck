@@ -1,0 +1,19 @@
+#!/bin/bash
+#PBS -N llm-train
+#PBS -l select=8:ngpus=8:mpiprocs=8
+#PBS -l walltime=24:00:00
+#PBS -q gpu
+#PBS -j oe
+
+cd "$PBS_O_WORKDIR"
+
+module load cuda/12.2
+module load nccl/2.19
+
+export NCCL_ALGO=Ring
+export NCCL_IB_DISABLE=0
+
+NODES=$(sort -u "$PBS_NODEFILE" | wc -l)
+
+mpirun -np $((NODES * 8)) --hostfile "$PBS_NODEFILE" \
+  torchrun --nnodes=${NODES} --nproc-per-node=8 train.py --deepspeed ds_config.json

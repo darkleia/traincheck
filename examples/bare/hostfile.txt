@@ -1,0 +1,8 @@
+gpu-node-01
+gpu-node-02
+gpu-node-03
+gpu-node-04
+gpu-node-05
+gpu-node-06
+gpu-node-07
+gpu-node-08

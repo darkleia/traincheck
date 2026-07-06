@@ -1,0 +1,17 @@
+#!/bin/bash
+#$ -N llm-train
+#$ -pe mpi 64
+#$ -l gpu=8
+#$ -q gpu.q
+#$ -l h_rt=24:00:00
+#$ -j y
+#$ -cwd
+
+module load cuda/12.2
+module load nccl/2.19
+
+export NCCL_ALGO=Ring
+export NCCL_IB_DISABLE=0
+
+mpirun -np 64 -hostfile "$PE_HOSTFILE" \
+  torchrun --nnodes=8 --nproc-per-node=8 train.py --deepspeed ds_config.json

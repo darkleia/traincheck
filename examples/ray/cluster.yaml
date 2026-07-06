@@ -1,0 +1,36 @@
+cluster_name: llm-train
+
+max_workers: 7
+
+provider:
+  type: aws
+  region: us-east-1
+
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: p5.48xlarge
+    resources:
+      GPU: 8
+    min_workers: 0
+    max_workers: 0
+  gpu_worker:
+    node_config:
+      InstanceType: p5.48xlarge
+    resources:
+      GPU: 8
+    min_workers: 7
+    max_workers: 7
+
+head_node_type: head_node
+
+setup_commands:
+  - pip install -r requirements.txt
+
+head_start_ray_commands:
+  - ray stop
+  - ray start --head --port=6379
+
+worker_start_ray_commands:
+  - ray stop
+  - ray start --address=$RAY_HEAD_IP:6379

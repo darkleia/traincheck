@@ -1,0 +1,27 @@
+name: llm-train
+
+resources:
+  accelerators: H100:8
+  cloud: aws
+  region: us-east-1
+  disk_size: 512
+  use_spot: false
+
+num_nodes: 8
+
+envs:
+  NCCL_ALGO: Ring
+  NCCL_IB_DISABLE: "0"
+
+workdir: .
+
+setup: |
+  pip install -r requirements.txt
+
+run: |
+  torchrun \
+    --nnodes=$SKYPILOT_NUM_NODES \
+    --nproc-per-node=8 \
+    --node-rank=$SKYPILOT_NODE_RANK \
+    --master-addr=$SKYPILOT_NODE_IPS \
+    train.py --deepspeed ds_config.json

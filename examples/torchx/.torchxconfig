@@ -1,0 +1,9 @@
+[component:dist.ddp]
+j = 8x8
+image = nvcr.io/nvidia/pytorch:24.01-py3
+script = train.py
+
+[slurm]
+partition = gpu
+comment = llm-train
+time = 24:00:00

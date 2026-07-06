@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nccl-tuning
+  namespace: ml-team
+data:
+  NCCL_ALGO: "Ring"
+  NCCL_IB_DISABLE: "0"
+  NCCL_NET_GDR_LEVEL: "5"
+  NCCL_DEBUG: "INFO"

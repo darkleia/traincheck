@@ -1,0 +1,32 @@
+cluster:
+  nodes: 8
+  gpus_per_node: 8
+  gpu_type: H100
+  interconnect: InfiniBand
+  gpu_memory_gb: 80
+
+framework:
+  name: pytorch
+  version: "2.3.0"
+
+nccl:
+  version: "2.19.0"
+  algo: Ring
+
+parallelism:
+  tensor_parallel: 2
+  pipeline_parallel: 4
+  data_parallel: 8
+
+environment:
+  NCCL_IB_DISABLE: 0
+  NCCL_NET_GDR_LEVEL: 5
+
+model:
+  size_billion_params: 70
+
+data:
+  dataloader_workers: 8
+
+checkpoint:
+  frequency_steps: 500
