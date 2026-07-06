@@ -3,9 +3,10 @@
 import ast
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from traincheck.ir import Field
+
 
 class Severity(Enum):
     ERROR = "error"
@@ -19,8 +20,8 @@ class Rule:
     condition: str
     message: str
     fix_suggestion: Optional[str] = None
-    
-    def evaluate(self, context: Dict[str, Any]) -> bool:
+
+    def evaluate(self, context: dict[str, Any]) -> bool:
         """Evaluate the rule's condition against the given context.
         Returns True if the rule is violated (i.e., the condition is true).
         """
@@ -32,7 +33,7 @@ class Rule:
 @dataclass
 class Violation:
     rule: Rule
-    context: Dict[str, Any]
+    context: dict[str, Any]
 
 @dataclass
 class NeedsVerification:
@@ -42,22 +43,22 @@ class NeedsVerification:
 
 @dataclass
 class Result:
-    violations: List[Violation] = field(default_factory=list)
-    needs_verification: List[NeedsVerification] = field(default_factory=list)
+    violations: list[Violation] = field(default_factory=list)
+    needs_verification: list[NeedsVerification] = field(default_factory=list)
 
     @property
-    def errors(self) -> List[Violation]:
+    def errors(self) -> list[Violation]:
         return [v for v in self.violations if v.rule.severity == Severity.ERROR]
 
     @property
-    def warnings(self) -> List[Violation]:
+    def warnings(self) -> list[Violation]:
         return [v for v in self.violations if v.rule.severity == Severity.WARN]
 
     @property
     def passed(self) -> bool:
         return len(self.errors) == 0
 
-def _condition_names(condition: str) -> Set[str]:
+def _condition_names(condition: str) -> set[str]:
     """Names a rule condition reads, e.g. {"nodes", "gpu_type"} for
     "nodes > 32 and gpu_type == 'A100'".
     """
@@ -66,12 +67,12 @@ def _condition_names(condition: str) -> Set[str]:
 
 class RuleEngine:
     def __init__(self):
-        self._rules: List[Rule] = []
+        self._rules: list[Rule] = []
 
     def register(self, rule: Rule) -> None:
         self._rules.append(rule)
 
-    def check(self, context: Dict[str, Any]) -> Result:
+    def check(self, context: dict[str, Any]) -> Result:
         """Run every registered rule against context.
 
         Context values may be plain values or `Field`s. A rule whose

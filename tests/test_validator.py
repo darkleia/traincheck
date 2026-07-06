@@ -72,6 +72,9 @@ def test_parse_config_round_trips_all_fields_as_resolved():
     spec = parse_config(NATIVE_CONFIG)
 
     for f in dataclasses.fields(spec):
+        if f.name == "meta":
+            # bookkeeping about the spec, not itself a config-derived Field
+            continue
         value = getattr(spec, f.name)
         assert isinstance(value, Field)
         assert value.status == "resolved"

@@ -23,6 +23,7 @@ dependencies = [
   "typer",
   "rich",
   "bashlex",
+  "pyyaml",
 ]
 requires-python = ">=3.9"
 

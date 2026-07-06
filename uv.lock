@@ -1034,6 +1034,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "bashlex" },
+    { name = "pyyaml" },
     { name = "rich" },
     { name = "typer", version = "0.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "typer", version = "0.26.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -1070,6 +1071,7 @@ typecheck = [
 [package.metadata]
 requires-dist = [
     { name = "bashlex" },
+    { name = "pyyaml" },
     { name = "rich" },
     { name = "typer" },
 ]
