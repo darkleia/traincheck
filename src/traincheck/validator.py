@@ -1,7 +1,7 @@
 """Config parsing and validation logic."""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from traincheck.core import Result, RuleEngine
 from traincheck.ir import Field
@@ -18,6 +18,10 @@ class Meta:
     """Bookkeeping about a JobSpec as a whole - not itself a config value."""
 
     unresolved: list = field(default_factory=list)
+    # Which downstream stack (e.g. a torchx run's target scheduler) this
+    # spec was ultimately understood as, when that's a fact about the
+    # adapter's own resolution rather than a JobSpec leaf.
+    stack: Optional[Field] = None
 
 @dataclass
 class JobSpec:

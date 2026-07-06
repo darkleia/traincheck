@@ -148,6 +148,12 @@ def test_torchx_component_py_exists_and_imports_torchx():
     assert "import torchx" in text
 
 
+def test_torchx_ds_config_exists_and_parses_as_json():
+    config = json.loads(_read_non_empty(TORCHX_DIR / "ds_config.json"))
+    assert isinstance(config, dict)
+    assert config
+
+
 # --- submitit ---
 
 
