@@ -122,6 +122,12 @@ def test_bare_hostfile_exists_and_is_non_empty():
     _read_non_empty(BARE_DIR / "hostfile.txt")
 
 
+def test_bare_ds_config_exists_and_parses_as_json():
+    config = json.loads(_read_non_empty(BARE_DIR / "ds_config.json"))
+    assert isinstance(config, dict)
+    assert config
+
+
 # --- torchx ---
 
 

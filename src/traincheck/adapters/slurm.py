@@ -47,6 +47,7 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     nproc_per_node = launcher.get("nproc_per_node")
     world_size = nnodes * nproc_per_node if nnodes is not None and nproc_per_node is not None else None
     spec.world_size = resolved_or_absent(world_size, "shell")
+    spec.launcher_nnodes = resolved_or_absent(nnodes, "shell")
     spec.launcher_nproc_per_node = resolved_or_absent(nproc_per_node, "shell")
 
     module_loads = shell["module_loads"]
