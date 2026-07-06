@@ -130,6 +130,11 @@ def test_torchx_run_sh_contains_expected_launch_command():
     assert "torchx run -s slurm dist.ddp -j 8x8" in text
 
 
+def test_torchx_component_py_exists_and_imports_torchx():
+    text = _read_non_empty(TORCHX_DIR / "component.py")
+    assert "import torchx" in text
+
+
 # --- submitit ---
 
 
