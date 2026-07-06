@@ -38,6 +38,7 @@ class JobSpec:
     # Launcher
     world_size: Field = field(default_factory=_unset)
     launcher_nproc_per_node: Field = field(default_factory=_unset)
+    launcher_kind: Field = field(default_factory=_unset)
     # Framework / Software
     framework_name: Field = field(default_factory=_unset)
     framework_version: Field = field(default_factory=_unset)
@@ -72,6 +73,8 @@ class JobSpec:
     tolerations: Field = field(default_factory=_unset)
     # Image
     image_pin_status: Field = field(default_factory=_unset)
+    # Dependencies
+    dependency_constraints: Field = field(default_factory=_unset)
 
     meta: Meta = field(default_factory=Meta)
 
@@ -99,6 +102,7 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         partition=_resolved(cluster.get("partition")),
         world_size=_resolved(None),
         launcher_nproc_per_node=_resolved(None),
+        launcher_kind=_resolved(None),
         framework_name=_resolved(framework.get("name")),
         framework_version=_resolved(parse_version(framework.get("version"))),
         nccl_version=_resolved(parse_version(nccl.get("version"))),
@@ -124,6 +128,7 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         affinity=_resolved(None),
         tolerations=_resolved(None),
         image_pin_status=_resolved(None),
+        dependency_constraints=_resolved(None),
     )
 
 class Validator:

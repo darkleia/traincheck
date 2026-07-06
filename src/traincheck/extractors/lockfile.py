@@ -101,6 +101,19 @@ def _parse_requirements(text: str) -> dict:
     return constraints
 
 
+def parse_pip_list(pip_entries: list) -> dict:
+    """Filter a bare list of pip requirement strings - e.g. a Ray
+    runtime_env's "pip" key - down to the tracked packages, the same way
+    a requirements.txt line would be.
+    """
+    constraints = {}
+    for entry in pip_entries or []:
+        parsed = _parse_requirement_line(entry)
+        if parsed and _is_tracked(parsed[0]):
+            constraints[parsed[0]] = parsed[1]
+    return constraints
+
+
 def _parse_environment_yml(text: str) -> dict:
     try:
         doc = yaml.safe_load(text)

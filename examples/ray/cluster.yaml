@@ -2,6 +2,10 @@ cluster_name: llm-train
 
 max_workers: 7
 
+docker:
+  image: nvcr.io/nvidia/pytorch:24.01-py3
+  container_name: ray_container
+
 provider:
   type: aws
   region: us-east-1
