@@ -1,0 +1,5 @@
+parallelism:
+  tensor_parallel: 2
+  pipeline_parallel: 4
+  data_parallel: 8
+  sharding: 3

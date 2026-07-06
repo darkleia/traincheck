@@ -1,0 +1,7 @@
+defaults:
+  - parallelism: tp2_pp4
+  - model: llama_70b
+  - _self_
+
+training:
+  seed: 42
