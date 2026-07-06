@@ -3,6 +3,9 @@
 from pathlib import Path
 
 from traincheck.adapters.torchx import adapt_torchx
+from traincheck.core import RuleEngine
+from traincheck.rules import BUILTIN_RULES
+from traincheck.verification import collect_needs_verification
 
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples" / "torchx"
 
@@ -80,3 +83,24 @@ def test_no_scheduler_found_marks_meta_stack_unknown(tmp_path):
     assert spec.meta.stack.status == "unknown"
     assert spec.meta.stack.reason
     assert spec.meta.stack in spec.meta.unresolved
+
+
+def test_unresolved_scheduler_surfaces_with_a_meaningful_label(tmp_path):
+    """meta.stack isn't a JobSpec-level attribute, so collect_needs_verification's
+    id-based reverse lookup must special-case it rather than falling back
+    to a generic, meaningless "unknown_field" label.
+    """
+    (tmp_path / "run.sh").write_text("#!/bin/bash\ntorchx run dist.ddp -j 8x8\n")
+    spec = adapt_torchx(str(tmp_path / "run.sh"), base_dir=str(tmp_path))
+
+    engine = RuleEngine()
+    for rule in BUILTIN_RULES:
+        engine.register(rule)
+    result = engine.check(vars(spec))
+
+    items = collect_needs_verification(spec, result)
+    stack_items = [item for item in items if item.reason == spec.meta.stack.reason]
+
+    assert stack_items
+    assert stack_items[0].field_name == "stack"
+    assert stack_items[0].field_name != "unknown_field"

@@ -55,6 +55,9 @@ def collect_needs_verification(spec: JobSpec, result: Result) -> list:
     names_by_id = {
         id(getattr(spec, f.name)): f.name for f in dataclasses.fields(spec) if f.name != "meta"
     }
+    if spec.meta.stack is not None:
+        names_by_id[id(spec.meta.stack)] = "stack"
+
     seen = {item.field_name for item in items}
     for unresolved_field in spec.meta.unresolved:
         name = names_by_id.get(id(unresolved_field), "unknown_field")

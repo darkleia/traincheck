@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from traincheck.core import Result, Severity
-from traincheck.resolve import resolve
+from traincheck.resolve import UnsupportedStackError, resolve
 from traincheck.validator import Validator
 from traincheck.verification import VerificationItem, collect_needs_verification
 
@@ -18,6 +18,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+err_console = Console(stderr=True)
 
 ICONS = {Severity.ERROR: "❌", Severity.WARN: "⚠️", Severity.INFO: "ℹ️"}
 COLORS = {Severity.ERROR: "red", Severity.WARN: "yellow", Severity.INFO: "blue"}
@@ -41,7 +42,12 @@ def check(
     ),
 ) -> None:
     """Validate a training job against known failure patterns."""
-    spec = resolve(str(config_path))
+    try:
+        spec = resolve(str(config_path))
+    except UnsupportedStackError as exc:
+        err_console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+
     result = Validator().validate_spec(spec)
     verification_items = collect_needs_verification(spec, result)
 

@@ -36,6 +36,25 @@ def test_detect_stack_falls_back_to_unknown_for_garbage(tmp_path):
     assert detect_stack(garbage) == Stack.UNKNOWN
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        EXAMPLES_ROOT / "k8s_crd" / "configmap.yaml",
+        EXAMPLES_ROOT / "k8s_crd" / "model-config.yaml",
+        EXAMPLES_ROOT / "hydra" / "model" / "llama_70b.yaml",
+        EXAMPLES_ROOT / "hydra" / "parallelism" / "tp2_pp4.yaml",
+    ],
+    ids=lambda p: p.name,
+)
+def test_detect_stack_does_not_false_positive_on_single_key_fragments(path):
+    """A plain YAML fragment that reuses one native-schema section name as
+    its sole top-level key (a k8s ConfigMap's `data:`, a Hydra group
+    file's `model:`/`parallelism:`) must not be mistaken for a native
+    traincheck config - it isn't a job config at all.
+    """
+    assert detect_stack(path) == Stack.UNKNOWN
+
+
 def test_detect_stack_raises_and_lists_candidates_for_a_directory():
     with pytest.raises(IsADirectoryError) as excinfo:
         detect_stack(EXAMPLES_ROOT / "slurm")

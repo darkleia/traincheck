@@ -98,3 +98,27 @@ def test_cli_check_json_is_valid_for_every_stack(entrypoint):
     assert "passed" in payload
     assert "violations" in payload
     assert "needs_verification" in payload
+
+
+def test_cli_check_reports_a_clean_error_for_an_unsupported_stack(tmp_path):
+    """A file resolve() can't route to any adapter must produce a plain
+    error message, not an uncaught traceback.
+    """
+    empty = tmp_path / "empty.yaml"
+    empty.write_text("")
+
+    result = runner.invoke(app, ["check", str(empty)])
+
+    assert result.exit_code == 2
+    assert "doesn't support this stack yet" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_cli_check_reports_a_clean_error_for_a_scheduler_without_an_adapter():
+    result = runner.invoke(
+        app, ["check", str(EXAMPLES_ROOT / "lsf" / "train.lsf")]
+    )
+
+    assert result.exit_code == 2
+    assert "doesn't support this stack yet" in result.output
+    assert "Traceback" not in result.output

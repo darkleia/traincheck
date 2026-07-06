@@ -52,6 +52,12 @@ _NATIVE_KEYS = {
     "data",
     "checkpoint",
 }
+# A real native config uses several of these sections together (see
+# examples/native/job.traincheck.yaml). Requiring just one match falsely
+# flags plain YAML fragments that happen to reuse a section name as their
+# sole top-level key - e.g. a Kubernetes ConfigMap (top-level `data:`) or
+# a Hydra config-group file (top-level `model:`/`parallelism:`).
+_NATIVE_KEY_MATCH_THRESHOLD = 2
 
 _SHELL_LAUNCHER_RE = re.compile(r"\b(torchrun|accelerate)\b")
 _TORCHX_IMPORT_RE = re.compile(r"^\s*(?:import|from)\s+torchx\b", re.MULTILINE)
@@ -90,7 +96,7 @@ def detect_stack(path: Union[str, Path]) -> Stack:
     if _SUBMITIT_IMPORT_RE.search(text):
         return Stack.SUBMITIT
 
-    if isinstance(doc, dict) and _NATIVE_KEYS & doc.keys():
+    if isinstance(doc, dict) and len(_NATIVE_KEYS & doc.keys()) >= _NATIVE_KEY_MATCH_THRESHOLD:
         return Stack.NATIVE
 
     return Stack.UNKNOWN
