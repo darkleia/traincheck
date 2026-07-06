@@ -24,6 +24,7 @@ dependencies = [
   "rich",
   "bashlex",
   "pyyaml",
+  "tomli; python_version < '3.11'",
 ]
 requires-python = ">=3.9"
 

@@ -1,0 +1,17 @@
+version = 1
+requires-python = ">=3.9"
+
+[[package]]
+name = "torch"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "nvidia-nccl-cu12"
+version = "2.19.3"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "transformers"
+version = "4.38.0"
+source = { registry = "https://pypi.org/simple" }
