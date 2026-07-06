@@ -32,6 +32,9 @@ _LOCAL_BACKEND_REASON = (
     "likely resolved to a local (non-scheduled) executor"
 )
 
+_HOST_ENV_REASON = "host fact, not in any file"
+_HOST_ENV_FIELDS = ("driver_version", "kernel_version", "ofed_version", "peermem_loaded")
+
 
 def adapt_submitit(path: str) -> JobSpec:
     with open(path) as f:
@@ -53,6 +56,11 @@ def adapt_submitit(path: str) -> JobSpec:
         confidence=1.0,
         reason="" if has_slurm_kwargs else _LOCAL_BACKEND_REASON,
     )
+
+    for name in _HOST_ENV_FIELDS:
+        host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)
+        setattr(spec, name, host_field)
+        spec.meta.unresolved.append(host_field)
 
     return spec
 

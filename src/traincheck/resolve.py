@@ -4,9 +4,27 @@ import os
 
 import yaml
 
+from traincheck.adapters.bare import adapt_bare
+from traincheck.adapters.k8s import adapt_k8s
+from traincheck.adapters.ray import adapt_ray
+from traincheck.adapters.skypilot import adapt_skypilot
 from traincheck.adapters.slurm import adapt_slurm
+from traincheck.adapters.submitit import adapt_submitit
+from traincheck.adapters.torchx import adapt_torchx
 from traincheck.detect import Stack, detect_stack
+from traincheck.ir import Field
 from traincheck.validator import JobSpec, parse_config
+
+# Adapters that take (path, base_dir). submitit is handled separately since
+# it needs neither - its script is fully self-contained.
+_BASE_DIR_ADAPTERS = {
+    Stack.SLURM: adapt_slurm,
+    Stack.K8S_CRD: adapt_k8s,
+    Stack.SKYPILOT: adapt_skypilot,
+    Stack.RAY: adapt_ray,
+    Stack.BARE: adapt_bare,
+    Stack.TORCHX: adapt_torchx,
+}
 
 
 class UnsupportedStackError(Exception):
@@ -19,12 +37,32 @@ def resolve(path: str) -> JobSpec:
     if stack == Stack.NATIVE:
         with open(path) as f:
             config = yaml.safe_load(f)
-        return parse_config(config)
+        spec = parse_config(config)
+        _default_stack(spec, stack)
+        return spec
 
-    if stack == Stack.SLURM:
+    if stack == Stack.SUBMITIT:
+        spec = adapt_submitit(path)
+        _default_stack(spec, stack)
+        return spec
+
+    adapter = _BASE_DIR_ADAPTERS.get(stack)
+    if adapter is not None:
         base_dir = os.path.dirname(os.path.abspath(path)) or "."
-        return adapt_slurm(path, base_dir=base_dir)
+        spec = adapter(path, base_dir=base_dir)
+        _default_stack(spec, stack)
+        return spec
 
     raise UnsupportedStackError(
         f"traincheck doesn't support this stack yet (detected: {stack.value}): {path}"
     )
+
+
+def _default_stack(spec: JobSpec, stack: Stack) -> None:
+    """Fill meta.stack with the detected stack name, unless the adapter
+    already recorded something more specific (torchx reports the backend
+    scheduler it delegated to, not "torchx" itself; submitit reports
+    "submitit" either way, so there's nothing to override there either).
+    """
+    if spec.meta.stack is None:
+        spec.meta.stack = Field(value=stack.value, status="resolved", source="resolve", confidence=1.0)
