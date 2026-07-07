@@ -7,7 +7,7 @@ and the actual launch command (torchrun/accelerate/deepspeed/...).
 """
 
 import re
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import bashlex
 import bashlex.errors
@@ -155,6 +155,29 @@ def _parse_launcher_line(
         return None, None, None, []
 
     tokens = _tokenize(launcher_line)
+    return parse_launcher_tokens(tokens, lambda value: _resolve_var(value, env_vars))
+
+
+def parse_launcher_tokens(
+    tokens: list[str], resolve_var: Callable[[Optional[str]], Optional[str]]
+) -> tuple[Optional[dict[str, Any]], Optional[str], Optional[str], list[str]]:
+    """Work out everything torchrun/torch.distributed.launch/accelerate/...
+    flags imply about the launcher, given an already-tokenized command.
+
+    `tokens` can come from anywhere a launch command is spelled out as
+    discrete argv entries - a shell line split by `_tokenize` below, or a
+    Kubernetes container's `command`/`args` list, which is already a clean
+    argv array with no shell-quoting to resolve.
+
+    `resolve_var` resolves whatever variable-reference syntax the token
+    source uses ($VAR/${VAR} for a shell script, $(VAR) for a Kubernetes
+    container command) against whatever's known at parse time - returning
+    None for anything injected later (by the shell's own runtime, or by a
+    Kubernetes operator/kubelet) that can't be read statically.
+    """
+    if not tokens:
+        return None, None, None, []
+
     kind = next((k for k in _LAUNCHER_KINDS if k in tokens), None)
     if kind is None:
         module = next((m for m in _PYTHON_M_MODULE_KINDS if m in tokens), None)
@@ -162,10 +185,10 @@ def _parse_launcher_line(
     raw, switches, config_overrides = _scan_tokens(tokens)
 
     def resolved(key: str) -> Optional[str]:
-        return _resolve_var(raw.get(key), env_vars)
+        return resolve_var(raw.get(key))
 
     nnodes_min, nnodes_max = _parse_nnodes(resolved("nnodes"))
-    nproc_per_node, nproc_host_dependent = _parse_nproc(resolved("nproc_per_node"))
+    nproc_per_node, nproc_host_dependent = parse_nproc_value(resolved("nproc_per_node"))
     max_restarts_raw = resolved("max_restarts")
     standalone = "standalone" in switches
     rdzv_endpoint = resolved("rdzv_endpoint")
@@ -244,7 +267,12 @@ def _parse_nnodes(value: Optional[str]) -> tuple[Optional[int], Optional[int]]:
     return n, n
 
 
-def _parse_nproc(value: Optional[str]) -> tuple[Optional[int], bool]:
+def parse_nproc_value(value: Optional[str]) -> tuple[Optional[int], bool]:
+    """Parse a --nproc-per-node-shaped value: an integer, or one of the
+    host-dependent tokens (gpu/cpu/xpu/auto) torchrun also accepts, which
+    can only be resolved on the actual host - reused as-is for Kubernetes'
+    equivalent `nprocPerNode` spec field, which allows the same tokens.
+    """
     if value is None:
         return None, False
     if value.lower() in _HOST_DEPENDENT_NPROC:

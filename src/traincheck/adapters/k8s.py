@@ -2,21 +2,44 @@
 
 Covers the shapes of the Kubeflow Training Operator (PyTorchJob/MPIJob/
 TFJob, each keyed by a *ReplicaSpecs map), Volcano's batch Job (keyed by a
-`spec.tasks` list instead), and a plain batch/v1 Job. Reads GPU count and
-total replica count for world_size, placement (nodeSelector/schedulerName/
-affinity/tolerations), env vars, and the container image (via
-extract_image). Model config isn't inline - it's mounted from a ConfigMap
-volume, so we go find that manifest in the same repo; if it isn't there,
-that's reported unknown rather than guessed at.
+`spec.tasks` list instead), and a plain batch/v1 Job. Reads placement
+(nodeSelector/schedulerName/affinity/tolerations), env vars, and the
+container image (via extract_image). Model config isn't inline - it's
+mounted from a ConfigMap volume, so we go find that manifest in the same
+repo; if it isn't there, that's reported unknown rather than guessed at.
+
+The launcher and world_size are the more involved pieces:
+
+- The container's `command`/`args` array is parsed as a launch line with
+  the same flag parser the shell-based adapters use (`parse_launcher_tokens`),
+  so a torchrun or `python -m torch.distributed.launch` invocation there is
+  no longer invisible. It's already a clean argv array - no shell quoting
+  to resolve - but it may reference Kubernetes' own `$(VAR_NAME)`
+  substitution syntax (e.g. a per-replica `--node_rank=$(RANK)`), which is
+  resolved against the container's own `env:` list the same way the shell
+  extractor resolves `$VAR` against a script's own exports - and reports
+  absent, not a literal "$(...)" string, for anything (like MASTER_ADDR)
+  that's actually injected later by the training operator.
+- PyTorchJob's nprocPerNode can be declared three different ways: the
+  modern top-level `spec.nprocPerNode` (a string, also accepting
+  torchrun's own host-dependent auto/cpu/gpu tokens), the deprecated
+  `spec.elasticPolicy.nProcPerNode` (a plain int), or read back out of the
+  command above - in that preference order. world_size is then
+  sum(replicas) * that value, not replicas * the GPU resource limit - the
+  GPU limit is only a resource request, not a promise about how many
+  processes actually get launched per node, and is used as a last-resort
+  stand-in (flagged as such) only when none of the three are set.
 """
 
+import re
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
 
 from traincheck.extractors.image import extract_image
-from traincheck.ir import Field, build_comm_env, resolved_or_absent
+from traincheck.extractors.shell import parse_launcher_tokens, parse_nproc_value
+from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
@@ -29,21 +52,38 @@ _REPLICA_SPEC_KEYS = {
     "TFJob": "tfReplicaSpecs",
 }
 
+_HOST_DEPENDENT_REASON = "per-node count is host-dependent"
+
+# Kubernetes' own container command/args substitution syntax - distinct
+# from a shell's $VAR/${VAR}, and resolved against the container's own
+# `env:` list rather than anything exported at runtime.
+_K8S_VAR_REF_RE = re.compile(r"^\$\(([A-Za-z_][A-Za-z0-9_]*)\)$")
+
 
 def adapt_k8s(path: str, base_dir: str) -> JobSpec:
     doc = load_yaml_file(Path(path))
     pod_spec, total_replicas = _pod_spec_and_total_replicas(doc)
     container = (pod_spec.get("containers") or [{}])[0]
+    job_spec = doc.get("spec") or {}
     source = "k8s"
 
     spec = JobSpec()
+    env_vars = _container_env(container)
+
+    tokens = list(container.get("command") or []) + list(container.get("args") or [])
+    launcher, _framework_config, _config_path, _config_overrides = parse_launcher_tokens(
+        tokens, lambda value: _resolve_k8s_var(value, env_vars)
+    )
+    for name, launcher_field in build_launcher_fields(launcher, f"{source}:command").items():
+        setattr(spec, name, launcher_field)
 
     # Resources
-    gpus_per_pod = _gpu_limit(container)
-    spec.gpus_per_node = resolved_or_absent(gpus_per_pod, source)
+    gpu_limit, gpu_request = _gpu_resources(container)
+    spec.gpus_per_node = _gpu_field(gpu_limit, gpu_request, source)
     spec.nodes = resolved_or_absent(total_replicas, source)
-    world_size = total_replicas * gpus_per_pod if gpus_per_pod is not None else None
-    spec.world_size = resolved_or_absent(world_size, source)
+    spec.launcher_nproc_per_node, spec.world_size = _resolve_nproc_and_world_size(
+        job_spec, launcher, total_replicas, gpu_limit, source
+    )
 
     # Placement
     node_selector = pod_spec.get("nodeSelector") or {}
@@ -54,7 +94,6 @@ def adapt_k8s(path: str, base_dir: str) -> JobSpec:
     spec.tolerations = resolved_or_absent(pod_spec.get("tolerations"), source)
 
     # Software: env vars straight off the container
-    env_vars = _container_env(container)
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), source)
     spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), source)
     spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
@@ -115,9 +154,98 @@ def _from_volcano_tasks(tasks: list) -> tuple:
     return pod_spec, total_replicas
 
 
-def _gpu_limit(container: dict) -> Optional[int]:
-    limits = (container.get("resources") or {}).get("limits") or {}
-    return safe_int(limits.get("nvidia.com/gpu"))
+def _gpu_resources(container: dict) -> tuple[Optional[int], Optional[int]]:
+    resources = container.get("resources") or {}
+    limit = safe_int((resources.get("limits") or {}).get("nvidia.com/gpu"))
+    request = safe_int((resources.get("requests") or {}).get("nvidia.com/gpu"))
+    return limit, request
+
+
+def _gpu_field(limit: Optional[int], request: Optional[int], source: str) -> Field:
+    reason = ""
+    if limit is not None and request is not None and limit != request:
+        reason = f"resources.requests.nvidia.com/gpu ({request}) differs from resources.limits.nvidia.com/gpu ({limit})"
+    value = limit if limit is not None else request
+    return Field(value=value, status="resolved" if value is not None else "absent", source=source, reason=reason)
+
+
+def _resolve_nproc_and_world_size(
+    job_spec: dict,
+    launcher: Optional[dict],
+    total_replicas: int,
+    gpu_limit: Optional[int],
+    source: str,
+) -> tuple[Field, Field]:
+    """nprocPerNode can come from three places, in preference order: the
+    modern top-level spec.nprocPerNode, the deprecated
+    elasticPolicy.nProcPerNode, or the container's own launch command.
+    world_size is replicas * that value, not replicas * the GPU resource
+    limit - the limit is just a resource request, not a promise about how
+    many processes actually launch per node, so it's used only as a
+    stand-in (flagged as such) when nothing else resolves it, and any
+    disagreement between it and a resolved nprocPerNode is flagged too.
+    """
+    nproc_value: Optional[int] = None
+    host_dependent = False
+    nproc_source = source
+
+    raw_spec_value = job_spec.get("nprocPerNode")
+    if raw_spec_value is not None:
+        nproc_value, host_dependent = parse_nproc_value(str(raw_spec_value))
+        nproc_source = f"{source}:spec.nprocPerNode"
+    else:
+        elastic_value = safe_int((job_spec.get("elasticPolicy") or {}).get("nProcPerNode"))
+        if elastic_value is not None:
+            nproc_value = elastic_value
+            nproc_source = f"{source}:elasticPolicy.nProcPerNode"
+        elif launcher is not None and launcher.get("nproc_per_node") is not None:
+            nproc_value = launcher["nproc_per_node"]
+            nproc_source = f"{source}:command"
+        elif launcher is not None and launcher.get("nproc_per_node_host_dependent"):
+            host_dependent = True
+            nproc_source = f"{source}:command"
+
+    disagreement_reason = ""
+    if nproc_value is not None and gpu_limit is not None and nproc_value != gpu_limit:
+        disagreement_reason = (
+            f"nprocPerNode ({nproc_source}={nproc_value}) disagrees with the "
+            f"nvidia.com/gpu resource limit ({gpu_limit})"
+        )
+
+    if host_dependent:
+        nproc_field = Field(value=None, status="unknown", reason=_HOST_DEPENDENT_REASON)
+    elif nproc_value is not None:
+        nproc_field = Field(
+            value=nproc_value, status="resolved", source=nproc_source, confidence=1.0, reason=disagreement_reason
+        )
+    elif gpu_limit is not None:
+        nproc_field = Field(
+            value=gpu_limit,
+            status="resolved",
+            source=f"{source}:gpu-limit",
+            confidence=0.5,
+            reason=(
+                "nprocPerNode isn't set in spec.nprocPerNode, elasticPolicy, or the "
+                "launch command - using the nvidia.com/gpu resource limit as a stand-in"
+            ),
+        )
+    else:
+        nproc_field = Field(value=None, status="absent", source=source)
+
+    if nproc_field.status == "resolved":
+        world_size_field = Field(
+            value=total_replicas * nproc_field.value,
+            status="resolved",
+            source=source,
+            confidence=1.0,
+            reason=nproc_field.reason,
+        )
+    else:
+        world_size_field = Field(
+            value=None, status=nproc_field.status, source=nproc_field.source, reason=nproc_field.reason
+        )
+
+    return nproc_field, world_size_field
 
 
 def _container_env(container: dict) -> dict:
@@ -127,6 +255,21 @@ def _container_env(container: dict) -> dict:
         if name is not None:
             env[name] = entry.get("value")
     return env
+
+
+def _resolve_k8s_var(value: Optional[str], env_vars: dict[str, str]) -> Optional[str]:
+    """Resolve a Kubernetes `$(VAR_NAME)` command/args substitution against
+    the container's own `env:` list - the same mechanism the kubelet
+    itself uses, so anything not defined there (like MASTER_ADDR, which a
+    training operator injects later rather than declaring statically)
+    correctly comes back absent rather than a literal "$(...)" string.
+    """
+    if value is None:
+        return None
+    match = _K8S_VAR_REF_RE.match(value)
+    if match:
+        return env_vars.get(match.group(1))
+    return None if "$(" in value else value
 
 
 def _fill_model_config(spec: JobSpec, pod_spec: dict, base_dir: Path) -> None:
