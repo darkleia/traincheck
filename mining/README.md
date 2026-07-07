@@ -8,6 +8,9 @@ directly in `src/traincheck/rules/config_coherence.py` instead; they never
 pass through here, because there's no source URL for an internal
 contradiction to be confirmed against.
 
+See `PLAN.md` for the prioritized, checkbox-tracked list of which
+component/source cells to mine next and why.
+
 ## The five disciplines
 
 1. **Extract, never generate.** A rule may only record a claim that appears
@@ -72,6 +75,16 @@ Every field is mandatory unless marked optional. Missing `source_url` or
 - `symptom`: verbatim, under 15 words.
 - `confidence` is derived, not free choice: authoritative-or-fix-linked →
   high; 2+ independent corroborations → medium; single anecdote → low.
+- `rejected` vs `needs_remining`: `rejected` means a specific source was
+  found and cited that contradicts or fails to support the claim (closed
+  `not_planned`, a maintainer's fix guess later walked back, conflicting
+  unconfirmed theories, etc.) - it still requires `source_url`. A claim
+  that was *never sourced to begin with* (like the quarantined
+  NCCL-RING-001) and for which an active search still turns up nothing
+  either way stays `needs_remining` even after an unsuccessful mining
+  attempt - an empty search result is not itself a citable source, so it
+  can't satisfy `rejected`'s source requirement. Record the attempt in
+  `notes` either way so the next pass doesn't repeat the same queries.
 - `needs_remining` (an extension beyond candidate/verified/rejected): used
   for a claim carried over with no source at all - see below.
 

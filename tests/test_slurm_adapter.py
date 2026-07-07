@@ -58,8 +58,19 @@ def test_adapt_slurm_resolves_the_container_image():
     assert spec.image_pin_status.value == "pinned_soft"
     # module load cuda/12.2 already resolved cuda_version; the image must
     # not clobber a more direct signal that's already there
-    assert spec.cuda_version.value == "12.2"
+    assert spec.cuda_version.value == (12, 2)
     assert spec.cuda_version.source == "shell"
+
+
+def test_adapt_slurm_reads_dependency_constraints_from_requirements_txt():
+    """examples/slurm/requirements.txt pins torch==2.3.0 and
+    deepspeed==0.14.0 - this must actually reach the JobSpec now, not just
+    sit on disk unread.
+    """
+    spec = adapt_slurm(str(EXAMPLES_DIR / "train.sbatch"), base_dir=str(EXAMPLES_DIR))
+
+    assert spec.dependency_constraints.status == "resolved"
+    assert spec.dependency_constraints.value == {"torch": "==2.3.0", "deepspeed": "==0.14.0"}
 
 
 def test_adapt_slurm_reports_host_env_facts_as_unknown_and_unresolved():

@@ -16,6 +16,7 @@ from typing import Optional
 from traincheck.adapters.deepspeed import adapt_deepspeed
 from traincheck.extractors.accelerate import apply_accelerate_launch
 from traincheck.extractors.image import extract_image
+from traincheck.extractors.lockfile import extract_lockfile
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import parse_gdr_level, parse_version, safe_int
@@ -44,7 +45,7 @@ def apply_shell_body(spec: JobSpec, body: str, base_dir: str, extra_env: Optiona
         setattr(spec, name, launcher_field)
 
     module_loads = shell["module_loads"]
-    spec.cuda_version = resolved_or_absent(_module_version(module_loads, "cuda"), "shell")
+    spec.cuda_version = resolved_or_absent(parse_version(_module_version(module_loads, "cuda")), "shell")
     spec.nccl_version = resolved_or_absent(parse_version(_module_version(module_loads, "nccl")), "shell")
 
     env_vars = shell["env_vars"]
@@ -67,6 +68,8 @@ def apply_shell_body(spec: JobSpec, body: str, base_dir: str, extra_env: Optiona
 
     # runtime (shell export) takes precedence over image-baked env
     spec.comm_env = build_comm_env([(f"shell:image:{image_ref}", image_env), ("shell", env_vars)])
+
+    spec.dependency_constraints = resolved_or_absent(extract_lockfile(base_dir) or None, "shell:lockfile")
 
     framework_config = shell["framework_config"]
     if framework_config is not None:

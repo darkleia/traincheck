@@ -1,5 +1,6 @@
 """Small helpers shared across parsers/adapters."""
 
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -14,6 +15,44 @@ def parse_version(version: Optional[str]) -> Optional[tuple]:
         return tuple(int(x) for x in version.split("."))
     except (ValueError, AttributeError):
         return None
+
+
+_LOOSE_CONSTRAINT_RE = re.compile(r"[<>~!,]")
+
+
+def parse_pinned_version(constraint: Optional[str]) -> Optional[tuple]:
+    """Turn a dependency constraint into a version tuple, but only when it
+    names exactly one version: an "==X.Y.Z" pin (as requirements.txt or
+    environment.yml would write it) or a bare "X.Y.Z" (as an already-resolved
+    lock file like uv.lock/poetry.lock/Pipfile.lock stores it). Anything
+    looser (">=", "~=", a range, an unpinned name) returns None rather than
+    guessing which version within the range is actually installed.
+    """
+    if not constraint:
+        return None
+    text = constraint.strip()
+    if text.startswith("=="):
+        text = text[2:].strip()
+    elif not text[0].isdigit() or _LOOSE_CONSTRAINT_RE.search(text):
+        return None
+    return parse_version(text.split("+")[0])
+
+
+def dependency_constraint(constraints: Optional[dict], package: str) -> Optional[str]:
+    """Look up `package` in a {package: constraint} dict (as
+    extract_lockfile/parse_pip_list produce for JobSpec.dependency_constraints),
+    normalizing both sides the way pip treats package names - "megatron-core"
+    and "megatron_core" are the same package, and a requirements.txt/lockfile
+    is free to spell it either way, so a Rule condition can't rely on one
+    fixed key spelling.
+    """
+    if not constraints:
+        return None
+    normalized = package.lower().replace("_", "-")
+    for name, constraint in constraints.items():
+        if name.lower().replace("_", "-") == normalized:
+            return constraint
+    return None
 
 
 def safe_int(value: Any) -> Optional[int]:

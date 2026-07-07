@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from traincheck.ir import Field
+from traincheck.utils import dependency_constraint, parse_pinned_version
 
 
 class Severity(Enum):
@@ -20,6 +21,11 @@ class Severity(Enum):
 # Without this, calling any of them raises NameError, and `evaluate`'s except
 # swallows that into a silent "condition is False" - a rule using one of these
 # would look registered and correct but could never actually fire.
+# parse_pinned_version/dependency_constraint are here for the same reason: a
+# condition that reads dependency_constraints (a raw {package: constraint}
+# dict, keys spelled however the requirements.txt/lockfile wrote them) needs
+# a normalized lookup and a way to turn e.g. "==1.13.0" into (1, 13, 0), and
+# these are the two safe, narrowly-scoped functions that do it.
 _SAFE_BUILTINS: dict[str, Any] = {
     "str": str,
     "int": int,
@@ -31,6 +37,8 @@ _SAFE_BUILTINS: dict[str, Any] = {
     "max": max,
     "round": round,
     "sorted": sorted,
+    "parse_pinned_version": parse_pinned_version,
+    "dependency_constraint": dependency_constraint,
 }
 
 

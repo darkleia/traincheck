@@ -43,6 +43,13 @@ def test_launcher_nproc_per_node_from_run_block():
     assert spec.launcher_nproc_per_node.value == 8
 
 
+def test_reads_dependency_constraints_from_requirements_txt():
+    spec = _adapt()
+
+    assert spec.dependency_constraints.status == "resolved"
+    assert spec.dependency_constraints.value == {"torch": "==2.3.0", "deepspeed": "==0.14.0"}
+
+
 def test_host_env_fields_are_unknown_and_in_meta_unresolved():
     spec = _adapt()
 

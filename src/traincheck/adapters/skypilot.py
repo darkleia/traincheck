@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
+from traincheck.extractors.lockfile import extract_lockfile
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
@@ -82,6 +83,8 @@ def adapt_skypilot(path: str, base_dir: str) -> JobSpec:
         setattr(spec, name, launcher_field)
 
     _fill_from_config(spec, shell, base_dir)
+
+    spec.dependency_constraints = resolved_or_absent(extract_lockfile(base_dir) or None, f"{source}:lockfile")
 
     for name in _HOST_ENV_FIELDS:
         host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)

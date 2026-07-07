@@ -82,3 +82,20 @@ def test_host_env_fields_are_unknown_and_in_meta_unresolved():
         assert field.reason
 
     assert len(spec.meta.unresolved) == 4
+
+
+def test_reads_dependency_constraints_from_a_requirements_txt_next_to_the_script(tmp_path):
+    (tmp_path / "requirements.txt").write_text("accelerate==1.13.0\ntransformers==5.10.1\n")
+    script = tmp_path / "run.sh"
+    script.write_text("#!/bin/bash\ntorchrun --nnodes=1 --nproc-per-node=8 train.py\n")
+
+    spec = adapt_bare(str(script), base_dir=str(tmp_path))
+
+    assert spec.dependency_constraints.status == "resolved"
+    assert spec.dependency_constraints.value == {"accelerate": "==1.13.0", "transformers": "==5.10.1"}
+
+
+def test_dependency_constraints_absent_with_no_lockfile_nearby():
+    spec = _adapt()
+
+    assert spec.dependency_constraints.status == "absent"

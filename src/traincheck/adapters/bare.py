@@ -20,6 +20,7 @@ from traincheck.adapters.hpc_shell import derive_data_parallel
 from traincheck.extractors.accelerate import apply_accelerate_launch
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
+from traincheck.extractors.lockfile import extract_lockfile
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import parse_gdr_level, safe_int
@@ -72,6 +73,8 @@ def adapt_bare(path: str, base_dir: str) -> JobSpec:
 
     # runtime (shell export) takes precedence over image-baked env
     spec.comm_env = build_comm_env([(f"{source}:image:{image_ref}", image_env), (source, env_vars)])
+
+    spec.dependency_constraints = resolved_or_absent(extract_lockfile(base_dir) or None, f"{source}:lockfile")
 
     _fill_deepspeed(spec, shell, base_dir)
     _fill_hydra(spec, shell, base_dir)

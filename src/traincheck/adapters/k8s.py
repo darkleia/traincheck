@@ -51,6 +51,7 @@ from typing import Any, Optional
 import yaml
 
 from traincheck.extractors.image import extract_image
+from traincheck.extractors.lockfile import extract_lockfile
 from traincheck.extractors.shell import parse_launcher_tokens, parse_nproc_value
 from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
@@ -134,6 +135,8 @@ def adapt_k8s(path: str, base_dir: str) -> JobSpec:
 
     # runtime (container.env) takes precedence over image-baked env
     spec.comm_env = build_comm_env([(f"{source}:image:{image_ref}", image_env), (source, env_vars)])
+
+    spec.dependency_constraints = resolved_or_absent(extract_lockfile(base_dir) or None, f"{source}:lockfile")
 
     _fill_model_config(spec, pod_spec, Path(base_dir))
 
@@ -273,6 +276,8 @@ def _adapt_trainjob(doc: dict, base_dir: Path) -> JobSpec:
     spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), source)
     spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
     spec.comm_env = build_comm_env([(f"{source}:image:{image_ref}", image_env), (source, env_vars)])
+
+    spec.dependency_constraints = resolved_or_absent(extract_lockfile(str(base_dir)) or None, f"{source}:lockfile")
 
     for name in _HOST_ENV_FIELDS:
         host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)

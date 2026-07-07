@@ -139,3 +139,14 @@ def test_host_env_fields_are_unknown_and_in_meta_unresolved():
         assert field.reason
 
     assert len(spec.meta.unresolved) == 4
+
+
+def test_reads_dependency_constraints_from_a_requirements_txt_in_base_dir(tmp_path):
+    doc = _trainjob_doc(trainer={"numNodes": 2, "resourcesPerNode": {"limits": {"nvidia.com/gpu": 8}}})
+    path, base_dir = _write(tmp_path, doc)
+    (tmp_path / "requirements.txt").write_text("transformers==5.10.1\n")
+
+    spec = adapt_k8s(path, base_dir)
+
+    assert spec.dependency_constraints.status == "resolved"
+    assert spec.dependency_constraints.value == {"transformers": "==5.10.1"}

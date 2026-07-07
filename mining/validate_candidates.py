@@ -101,7 +101,16 @@ def _validate_candidate(candidate: dict) -> list[str]:
     if not candidate.get("sides"):
         errors.append("sides must be non-empty")
 
-    if status == "verified" and not candidate.get("fixed_in") and candidate["confidence"] == "high":
+    # A vendor compatibility matrix (e.g. "CUDA 12.x needs driver >=X") is a
+    # published requirement, not a bug - there's no "fixed_in" version for a
+    # static minimum-version floor, so it's exempt from the fix-linkage check
+    # a bug-report candidate would otherwise need to justify high confidence.
+    if (
+        status == "verified"
+        and not candidate.get("fixed_in")
+        and candidate["confidence"] == "high"
+        and candidate.get("source_type") != "vendor_matrix"
+    ):
         errors.append("verified + high confidence but no fixed_in - high confidence should usually be fix-linked")
 
     return errors

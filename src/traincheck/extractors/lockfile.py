@@ -4,7 +4,8 @@ Walks a directory (up to a fixed depth) looking for requirements.txt,
 environment.yml, uv.lock, poetry.lock, or Pipfile.lock, and pulls out
 whatever constraint each one puts on a small set of packages that matter
 for the kind of misconfiguration traincheck cares about: torch, the
-nvidia-nccl-cu*/nvidia-cuda* wheel families, deepspeed, transformers, apex.
+nvidia-nccl-cu*/nvidia-cuda* wheel families, deepspeed, transformers, apex,
+accelerate, megatron-core.
 """
 
 import json
@@ -28,7 +29,7 @@ _TARGET_FILENAMES = {
     "Pipfile.lock",
 }
 
-_EXACT_PACKAGES = {"torch", "deepspeed", "transformers", "apex"}
+_EXACT_PACKAGES = {"torch", "deepspeed", "transformers", "apex", "accelerate", "megatron-core"}
 _PREFIX_PACKAGES = ("nvidia-nccl-cu", "nvidia-cuda")
 
 _REQ_LINE_RE = re.compile(r"^([A-Za-z0-9_.\-]+)(?:\[[^\]]*\])?\s*(.*)$")

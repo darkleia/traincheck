@@ -32,3 +32,13 @@ def test_untracked_package_is_not_included():
     constraints = extract_lockfile(str(EXAMPLES_ROOT / "ray"))
 
     assert "ray" not in constraints
+
+
+def test_accelerate_and_megatron_core_are_tracked(tmp_path):
+    (tmp_path / "requirements.txt").write_text("accelerate==1.13.0\nmegatron_core==0.9.0\n")
+
+    constraints = extract_lockfile(str(tmp_path))
+
+    assert constraints["accelerate"] == "==1.13.0"
+    # underscore-vs-hyphen naming must normalize the same way pip itself does
+    assert constraints["megatron_core"] == "==0.9.0"
