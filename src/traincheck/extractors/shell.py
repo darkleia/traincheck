@@ -18,6 +18,16 @@ _SOURCE_RE = re.compile(r"^\s*(?:source|\.)\s+\S+")
 
 _LAUNCHER_KINDS = ("torchrun", "accelerate", "deepspeed", "mpirun", "horovodrun")
 
+# `python -m torch.distributed.run` is torchrun under a different spelling -
+# same flags, same elastic-agent semantics - so it maps to the same kind.
+# `python -m torch.distributed.launch` is the older, pre-elastic-agent
+# launcher; it's kept as its own kind so downstream can tell the two apart
+# (e.g. it never gets the torchrun-only --max-restarts default).
+_PYTHON_M_MODULE_KINDS = {
+    "torch.distributed.run": "torchrun",
+    "torch.distributed.launch": "torch.distributed.launch",
+}
+
 _CONTAINER_IMAGE_RE = re.compile(r"--container-image=(\S+)")
 _IMAGE_FLAG_RE = re.compile(r"--image=(\S+)")
 _SINGULARITY_RE = re.compile(r"singularity\s+(?:exec|run)\s+(?:-\S+(?:\s+\S+)?\s+)*(\S+)")
@@ -54,6 +64,10 @@ _VALUE_FLAGS = {
 # Boolean switches: presence alone is the signal, no value token follows.
 _SWITCH_FLAGS = {
     "--standalone": "standalone",
+    # Legacy torch.distributed.launch flag (deprecated even there); no
+    # JobSpec field reads it yet, but it must still be recognized so it
+    # isn't mistaken for a bare config override.
+    "--use_env": "use_env",
 }
 
 _HOST_DEPENDENT_NPROC = {"gpu", "cpu", "xpu", "auto"}
@@ -98,7 +112,10 @@ def extract_shell(script_text: str, base_dir: str) -> dict[str, Any]:
         if image_ref is None:
             image_ref = _find_image_ref(line)
 
-        if launcher_line is None and any(kind in line for kind in _LAUNCHER_KINDS):
+        is_launcher_line = any(kind in line for kind in _LAUNCHER_KINDS) or any(
+            module in line for module in _PYTHON_M_MODULE_KINDS
+        )
+        if launcher_line is None and is_launcher_line:
             launcher_line = line
 
     launcher, framework_config, config_path, config_overrides = _parse_launcher_line(launcher_line, env_vars)
@@ -134,6 +151,9 @@ def _parse_launcher_line(
 
     tokens = _tokenize(launcher_line)
     kind = next((k for k in _LAUNCHER_KINDS if k in tokens), None)
+    if kind is None:
+        module = next((m for m in _PYTHON_M_MODULE_KINDS if m in tokens), None)
+        kind = _PYTHON_M_MODULE_KINDS.get(module) if module else None
     raw, switches, config_overrides = _scan_tokens(tokens)
 
     def resolved(key: str) -> Optional[str]:

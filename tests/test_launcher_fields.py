@@ -109,3 +109,44 @@ def test_standalone_with_explicit_rdzv_endpoint_notes_the_conflict():
 
     assert fields["launcher_standalone"].value is True
     assert fields["launcher_standalone"].reason == "standalone conflicts with explicit rendezvous endpoint"
+
+
+def test_torch_distributed_run_resolves_the_same_fields_as_torchrun():
+    torchrun_script = "torchrun --nnodes=2 --nproc-per-node=4 --node-rank=1 --max-restarts=2 train.py\n"
+    dist_run_script = (
+        "python -m torch.distributed.run --nnodes=2 --nproc-per-node=4 --node-rank=1 --max-restarts=2 train.py\n"
+    )
+
+    torchrun_fields = _launcher_fields(torchrun_script)
+    dist_run_fields = _launcher_fields(dist_run_script)
+
+    assert dist_run_fields["launcher_kind"].value == "torchrun"
+    for key in (
+        "launcher_nnodes",
+        "launcher_nproc_per_node",
+        "launcher_node_rank",
+        "launcher_max_restarts",
+        "world_size",
+    ):
+        assert dist_run_fields[key].status == torchrun_fields[key].status
+        assert dist_run_fields[key].value == torchrun_fields[key].value
+
+
+def test_torch_distributed_launch_resolves_node_rank_and_master_fields():
+    script = (
+        "python -m torch.distributed.launch "
+        "--nproc_per_node=4 --nnodes=2 --node_rank=1 "
+        "--master_addr=node0 --master_port=29500 --use_env "
+        "train.py\n"
+    )
+
+    fields = _launcher_fields(script)
+
+    assert fields["launcher_kind"].value == "torch.distributed.launch"
+    assert fields["launcher_nnodes"].value == 2
+    assert fields["launcher_nproc_per_node"].value == 4
+    assert fields["launcher_node_rank"].value == 1
+    assert fields["launcher_master_addr"].value == "node0"
+    assert fields["launcher_master_port"].value == 29500
+    # the legacy launcher has no elastic-agent restart concept, unlike torchrun
+    assert fields["launcher_max_restarts"].status == "absent"
