@@ -16,7 +16,7 @@ from typing import Optional
 from traincheck.adapters.deepspeed import adapt_deepspeed
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
-from traincheck.ir import Field, build_launcher_fields, resolved_or_absent
+from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import parse_gdr_level, parse_version, safe_int
 from traincheck.validator import JobSpec
 
@@ -56,8 +56,10 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell")
 
     image_ref = shell["image_ref"]
+    image_env = None
     if image_ref:
         image_fields = extract_image(image_ref)
+        image_env = image_fields["env"]
         spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], "shell:image")
         if spec.cuda_version.status != "resolved":
             spec.cuda_version = image_fields["cuda"]
@@ -65,6 +67,9 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
             spec.nccl_version = image_fields["nccl"]
         if spec.framework_version.status != "resolved":
             spec.framework_version = image_fields["framework"]
+
+    # runtime (shell export) takes precedence over image-baked env
+    spec.comm_env = build_comm_env([(f"shell:image:{image_ref}", image_env), ("shell", env_vars)])
 
     framework_config = shell["framework_config"]
     if framework_config is not None:

@@ -16,7 +16,7 @@ from typing import Any, Optional
 import yaml
 
 from traincheck.extractors.image import extract_image
-from traincheck.ir import Field, resolved_or_absent
+from traincheck.ir import Field, build_comm_env, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
@@ -61,12 +61,17 @@ def adapt_k8s(path: str, base_dir: str) -> JobSpec:
 
     # Image
     image_ref = container.get("image")
+    image_env = None
     if image_ref:
         image_fields = extract_image(image_ref)
+        image_env = image_fields["env"]
         spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], f"{source}:image")
         spec.cuda_version = image_fields["cuda"]
         spec.nccl_version = image_fields["nccl"]
         spec.framework_version = image_fields["framework"]
+
+    # runtime (container.env) takes precedence over image-baked env
+    spec.comm_env = build_comm_env([(f"{source}:image:{image_ref}", image_env), (source, env_vars)])
 
     _fill_model_config(spec, pod_spec, Path(base_dir))
 

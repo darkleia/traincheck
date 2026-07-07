@@ -70,13 +70,24 @@ def test_parse_config_round_trips_all_fields_as_resolved():
     spec = parse_config(NATIVE_CONFIG)
 
     for f in dataclasses.fields(spec):
-        if f.name == "meta":
-            # bookkeeping about the spec, not itself a config-derived Field
+        if f.name in ("meta", "comm_env"):
+            # bookkeeping / a dict-of-Fields bucket, not itself a single
+            # config-derived Field - see test_parse_config_comm_env below
             continue
         value = getattr(spec, f.name)
         assert isinstance(value, Field)
         assert value.status == "resolved"
         assert value.source == "native"
+
+
+def test_parse_config_comm_env_reads_from_the_environment_block():
+    spec = parse_config(NATIVE_CONFIG)
+
+    assert spec.comm_env["NCCL_IB_DISABLE"].status == "resolved"
+    assert spec.comm_env["NCCL_IB_DISABLE"].value == 1
+    assert spec.comm_env["NCCL_IB_DISABLE"].source == "native"
+    # not present in NATIVE_CONFIG's "environment" block
+    assert spec.comm_env["NCCL_SOCKET_IFNAME"].status == "absent"
 
 
 def test_field_rejects_unknown_status_without_reason():

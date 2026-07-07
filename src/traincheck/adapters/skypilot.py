@@ -16,7 +16,7 @@ from typing import Any, Optional
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
-from traincheck.ir import Field, build_launcher_fields, resolved_or_absent
+from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
@@ -51,14 +51,26 @@ def adapt_skypilot(path: str, base_dir: str) -> JobSpec:
     run_text = doc.get("run") or ""
 
     image_ref = _image_ref(resources, setup_text)
+    image_env = None
     if image_ref:
         image_fields = extract_image(image_ref)
+        image_env = image_fields["env"]
         spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], f"{source}:image")
         spec.cuda_version = image_fields["cuda"]
         spec.nccl_version = image_fields["nccl"]
         spec.framework_version = image_fields["framework"]
 
     shell = extract_shell(f"{setup_text}\n{run_text}", base_dir=base_dir)
+    # precedence, lowest to highest: image-baked, declared `envs:`, then the
+    # script's own exports (setup/run execute after envs are injected, so a
+    # re-export there is what actually takes effect at runtime)
+    spec.comm_env = build_comm_env(
+        [
+            (f"{source}:image:{image_ref}", image_env),
+            (source, envs),
+            (f"{source}:shell", shell["env_vars"]),
+        ]
+    )
     launcher_fields = build_launcher_fields(shell["launcher"], "shell")
     # num_nodes + accelerators (above) is the more authoritative source for
     # SkyPilot's own world_size - only fall back to the shell-derived one

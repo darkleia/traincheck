@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.lockfile import parse_pip_list
-from traincheck.ir import Field, resolved_or_absent
+from traincheck.ir import Field, build_comm_env, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
@@ -55,11 +55,17 @@ def adapt_ray(path: str, base_dir: str) -> JobSpec:
     spec = JobSpec()
     spec.launcher_kind = resolved_or_absent("ray", source)
 
+    image_env, image_ref = (None, None)
     if cluster_doc:
-        _fill_from_cluster(spec, cluster_doc, source)
+        image_env, image_ref = _fill_from_cluster(spec, cluster_doc, source)
 
+    job_env_vars = None
     if job_text is not None:
-        _fill_from_job_py(spec, job_text, source)
+        job_env_vars = _fill_from_job_py(spec, job_text, source)
+
+    # runtime (the job script's own runtime_env) takes precedence over the
+    # cluster's image-baked env
+    spec.comm_env = build_comm_env([(f"{source}:image:{image_ref}", image_env), (f"{source}:job", job_env_vars)])
 
     for name in _HOST_ENV_FIELDS:
         host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)
@@ -69,7 +75,7 @@ def adapt_ray(path: str, base_dir: str) -> JobSpec:
     return spec
 
 
-def _fill_from_cluster(spec: JobSpec, cluster_doc: dict, source: str) -> None:
+def _fill_from_cluster(spec: JobSpec, cluster_doc: dict, source: str) -> tuple[Optional[dict], Optional[str]]:
     cluster_source = f"{source}:cluster"
     gpus_per_node = _worker_gpu_count(cluster_doc)
     max_workers = cluster_doc.get("max_workers")
@@ -81,12 +87,15 @@ def _fill_from_cluster(spec: JobSpec, cluster_doc: dict, source: str) -> None:
     spec.world_size = resolved_or_absent(world_size, cluster_source)
 
     image_ref = (cluster_doc.get("docker") or {}).get("image")
-    if image_ref:
-        image_fields = extract_image(image_ref)
-        spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], f"{source}:image")
-        spec.cuda_version = image_fields["cuda"]
-        spec.nccl_version = image_fields["nccl"]
-        spec.framework_version = image_fields["framework"]
+    if not image_ref:
+        return None, None
+
+    image_fields = extract_image(image_ref)
+    spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], f"{source}:image")
+    spec.cuda_version = image_fields["cuda"]
+    spec.nccl_version = image_fields["nccl"]
+    spec.framework_version = image_fields["framework"]
+    return image_fields["env"], image_ref
 
 
 def _worker_gpu_count(cluster_doc: dict) -> Optional[int]:
@@ -109,7 +118,7 @@ def _worker_gpu_count(cluster_doc: dict) -> Optional[int]:
     return None
 
 
-def _fill_from_job_py(spec: JobSpec, text: str, source: str) -> None:
+def _fill_from_job_py(spec: JobSpec, text: str, source: str) -> Optional[dict]:
     job_source = f"{source}:job"
     pip_field, env_vars_field, num_gpus_field = _parse_job_py(text, job_source)
 
@@ -124,11 +133,13 @@ def _fill_from_job_py(spec: JobSpec, text: str, source: str) -> None:
         spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), job_source)
         spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), job_source)
     else:
+        env_vars = None
         spec.nccl_algo = env_vars_field
         spec.nccl_ib_disable = env_vars_field
         spec.nccl_net_gdr_level = env_vars_field
 
     spec.launcher_nproc_per_node = num_gpus_field
+    return env_vars
 
 
 def _parse_job_py(text: str, source: str) -> tuple:

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from traincheck.core import Result, RuleEngine
-from traincheck.ir import Field
+from traincheck.ir import Field, build_comm_env
 from traincheck.rules import BUILTIN_RULES
 from traincheck.utils import parse_version
 
@@ -65,6 +65,11 @@ class JobSpec:
     # Environment
     nccl_ib_disable: Field = field(default_factory=_unset)
     nccl_net_gdr_level: Field = field(default_factory=_unset)
+    # Communication env - every NCCL/CUDA comm-related var, with provenance
+    # (see ir.build_comm_env). A superset of nccl_algo/nccl_ib_disable/
+    # nccl_net_gdr_level above, which stay as their own fields for the
+    # existing rules that already read them directly.
+    comm_env: dict[str, Field] = field(default_factory=dict)
     # Parallelism
     tensor_parallel: Field = field(default_factory=_unset)
     pipeline_parallel: Field = field(default_factory=_unset)
@@ -140,6 +145,7 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         cuda_version=_resolved(None),
         nccl_ib_disable=_resolved(env.get("NCCL_IB_DISABLE")),
         nccl_net_gdr_level=_resolved(env.get("NCCL_NET_GDR_LEVEL")),
+        comm_env=build_comm_env([("native", env)]),
         tensor_parallel=_resolved(parallelism.get("tensor_parallel")),
         pipeline_parallel=_resolved(parallelism.get("pipeline_parallel")),
         data_parallel=_resolved(parallelism.get("data_parallel")),
