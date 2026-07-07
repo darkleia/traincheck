@@ -2,8 +2,14 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+# The importable module stays `traincheck` even though the PyPI
+# distribution is named `traincheck-lint`, so hatchling can't infer the
+# package directory from the project name - point it at the real one.
+packages = ["src/traincheck"]
+
 [project]
-name = "traincheck"
+name = "traincheck-lint"
 version = "0.1.0"
 description = "A configuration linter for distributed GPU training that catches misconfigurations before they cause failures."
 readme = "README.md"
