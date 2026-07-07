@@ -10,14 +10,15 @@ from traincheck.verification import collect_needs_verification
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples" / "slurm"
+NATIVE_CONFIG_PATH = REPO_ROOT / "examples" / "native" / "job.traincheck.yaml"
 
 
 def test_resolve_dispatches_native_yaml_to_parse_config():
-    spec = resolve(str(REPO_ROOT / "test_config.yaml"))
+    spec = resolve(str(NATIVE_CONFIG_PATH))
 
     assert isinstance(spec, JobSpec)
     assert spec.nodes.status == "resolved"
-    assert spec.nodes.value == 64
+    assert spec.nodes.value == 8
 
 
 def test_resolve_dispatches_sbatch_to_adapt_slurm():
