@@ -76,17 +76,22 @@ _BARE_OVERRIDE_RE = re.compile(r"^[A-Za-z_][\w.]*=[^=\s]+$")
 _VAR_REF_RE = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")
 
 
-def extract_shell(script_text: str, base_dir: str) -> dict[str, Any]:
+def extract_shell(script_text: str, base_dir: str, extra_env: Optional[dict[str, str]] = None) -> dict[str, Any]:
     """Pull launcher-relevant signals out of a shell/sbatch script body.
 
     `base_dir` is accepted for future use (resolving relative config paths
     against the script's own directory) but isn't needed by any signal
     extracted today.
+
+    `extra_env` seeds env vars the script itself never exports but that are
+    injected by whatever runs it (e.g. Slurm's own SLURM_GPUS_ON_NODE/
+    SLURM_NTASKS) - a script export of the same name still overrides it,
+    exactly as it would at runtime.
     """
     joined = _join_line_continuations(script_text)
 
     module_loads: list[str] = []
-    env_vars: dict[str, str] = {}
+    env_vars: dict[str, str] = dict(extra_env or {})
     image_ref: Optional[str] = None
     launcher_line: Optional[str] = None
 
