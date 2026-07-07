@@ -30,7 +30,11 @@ dependencies = [
   "rich",
   "bashlex",
   "pyyaml",
-  "tomli; python_version < '3.11'",
+  # Always installed (not just for <3.11): lockfile.py's stdlib/tomli
+  # fallback is chosen at runtime via sys.version_info, but static analysis
+  # (ty) checks both import branches regardless of the active Python
+  # version, so tomli must resolve even where it isn't actually used.
+  "tomli",
 ]
 requires-python = ">=3.9"
 

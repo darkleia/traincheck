@@ -11,6 +11,9 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Docs build output (zensical)
+site/
 *.egg
 .eggs/
 
