@@ -33,25 +33,26 @@ ALL_STACK_ENTRYPOINTS = [
     EXAMPLES_ROOT / "native" / "job.traincheck.yaml",
 ]
 
-# Triggers NCCL-RING-001 (an ERROR-severity rule): Ring algo, >32 nodes,
-# an A100 GPU type, and an NCCL version older than 2.21 - all fields the
-# Slurm+shell adapter can resolve directly from the header/body alone.
+# Triggers PARALLEL-002 (an ERROR-severity rule): the DeepSpeed config's
+# tensor_parallel_size * pipeline_parallel_size (3) doesn't evenly divide
+# the header's own world_size (5 nodes * 2 GPUs/node = 10) - all fields
+# the Slurm+shell+DeepSpeed adapter can resolve directly.
 BROKEN_SBATCH = """\
 #!/bin/bash
 #SBATCH --job-name=broken-train
-#SBATCH --nodes=64
-#SBATCH --gpus-per-node=8
+#SBATCH --nodes=5
+#SBATCH --gpus-per-node=2
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu
-#SBATCH --constraint=A100-SXM4-80GB
 
-module load cuda/12.2
-module load nccl/2.19
+srun torchrun --nnodes=5 --nproc-per-node=2 train.py --deepspeed ds_config.json
+"""
 
-export NCCL_ALGO=Ring
-export NCCL_IB_DISABLE=0
-
-srun torchrun --nnodes=64 --nproc-per-node=8 train.py
+BROKEN_DS_CONFIG = """\
+{
+  "tensor_parallel_size": 3,
+  "pipeline_parallel_size": 1
+}
 """
 
 
@@ -69,11 +70,12 @@ def test_cli_check_prints_three_sections_for_clean_sbatch_fixture():
 def test_cli_check_exits_1_when_a_real_error_violation_fires(tmp_path):
     broken = tmp_path / "broken.sbatch"
     broken.write_text(BROKEN_SBATCH)
+    (tmp_path / "ds_config.json").write_text(BROKEN_DS_CONFIG)
 
     result = runner.invoke(app, ["check", str(broken)])
 
     assert result.exit_code == 1
-    assert "NCCL-RING-001" in result.stdout
+    assert "PARALLEL-002" in result.stdout
 
 
 def test_cli_check_json_includes_needs_verification_array():

@@ -14,6 +14,26 @@ class Severity(Enum):
     INFO = "info"
 
 
+# A condition/detail expression runs with no real __builtins__ (no file/network/
+# import access), but a handful of plain type-coercion functions are common and
+# safe enough to allow explicitly - e.g. "str(gpu_type).startswith('H100')".
+# Without this, calling any of them raises NameError, and `evaluate`'s except
+# swallows that into a silent "condition is False" - a rule using one of these
+# would look registered and correct but could never actually fire.
+_SAFE_BUILTINS: dict[str, Any] = {
+    "str": str,
+    "int": int,
+    "float": float,
+    "bool": bool,
+    "len": len,
+    "abs": abs,
+    "min": min,
+    "max": max,
+    "round": round,
+    "sorted": sorted,
+}
+
+
 @dataclass
 class Rule:
     id: str
@@ -32,7 +52,7 @@ class Rule:
         Returns True if the rule is violated (i.e., the condition is true).
         """
         try:
-            return bool(eval(self.condition, {"__builtins__": {}}, context))
+            return bool(eval(self.condition, {"__builtins__": _SAFE_BUILTINS}, context))
         except Exception:
             return False
 
@@ -40,7 +60,7 @@ class Rule:
         if self.detail is None:
             return None
         try:
-            return str(eval(self.detail, {"__builtins__": {}}, context))
+            return str(eval(self.detail, {"__builtins__": _SAFE_BUILTINS}, context))
         except Exception:
             return None
 

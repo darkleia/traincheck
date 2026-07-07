@@ -35,16 +35,16 @@ def test_resolve_raises_clear_error_for_unsupported_stack():
 
 
 def test_end_to_end_slurm_pipeline_rules_all_evaluate():
-    """None of NCCL-RING-001, PARALLEL-001, or NCCL-GDR-001 should be
-    blocked as needs_verification - every field their conditions reference
-    is resolved (or genuinely absent, never unknown) by the Slurm+shell+
+    """Neither PARALLEL-001 nor NCCL-GDR-001 should be blocked as
+    needs_verification - every field their conditions reference is
+    resolved (or genuinely absent, never unknown) by the Slurm+shell+
     DeepSpeed pipeline, so the rule engine reaches a real verdict.
     """
     spec = resolve(str(EXAMPLES_DIR / "train.sbatch"))
     result = Validator().validate_spec(spec)
 
     blocked_rule_ids = {nv.rule.id for nv in result.needs_verification}
-    for rule_id in ("NCCL-RING-001", "PARALLEL-001", "NCCL-GDR-001"):
+    for rule_id in ("PARALLEL-001", "NCCL-GDR-001"):
         assert rule_id not in blocked_rule_ids
 
 

@@ -32,7 +32,7 @@ def test_fully_resolved_jobspec_fires_rules_unchanged():
     result = Validator().validate(NATIVE_CONFIG)
 
     fired = {v.rule.id for v in result.violations}
-    assert fired == {"NCCL-RING-001", "NCCL-IB-001", "DATALOADER-001", "CHECKPOINT-001"}
+    assert fired == {"NCCL-IB-001", "DATALOADER-001", "CHECKPOINT-001"}
     assert result.needs_verification == []
 
 
@@ -41,17 +41,8 @@ def test_unknown_field_routes_to_needs_verification_not_a_violation():
     nor turned into a violation - it belongs in needs_verification.
     """
     spec = JobSpec(
-        nodes=Field(64, status="resolved", source="test"),
-        gpus_per_node=Field(8, status="resolved", source="test"),
-        gpu_type=Field("A100", status="resolved", source="test"),
-        interconnect=Field("InfiniBand", status="resolved", source="test"),
-        nccl_algo=Field("Ring", status="resolved", source="test"),
-        nccl_version=Field(None, status="unknown", reason="NCCL_VERSION not readable from container image"),
-        nccl_ib_disable=Field(0, status="resolved", source="test"),
-        tensor_parallel=Field(2, status="resolved", source="test"),
-        pipeline_parallel=Field(4, status="resolved", source="test"),
-        data_parallel=Field(64, status="resolved", source="test"),
-        dataloader_workers=Field(8, status="resolved", source="test"),
+        gpu_type=Field("H100", status="resolved", source="test"),
+        nccl_net_gdr_level=Field(None, status="unknown", reason="NCCL_NET_GDR_LEVEL not readable from container image"),
     )
 
     engine = RuleEngine()
@@ -59,11 +50,32 @@ def test_unknown_field_routes_to_needs_verification_not_a_violation():
         engine.register(rule)
     result = engine.check(vars(spec))
 
-    assert "NCCL-RING-001" not in {v.rule.id for v in result.violations}
+    assert "NCCL-GDR-001" not in {v.rule.id for v in result.violations}
     needs_verification = {nv.rule.id: nv for nv in result.needs_verification}
-    assert "NCCL-RING-001" in needs_verification
-    assert needs_verification["NCCL-RING-001"].field_name == "nccl_version"
-    assert needs_verification["NCCL-RING-001"].reason == "NCCL_VERSION not readable from container image"
+    assert "NCCL-GDR-001" in needs_verification
+    assert needs_verification["NCCL-GDR-001"].field_name == "nccl_net_gdr_level"
+    assert needs_verification["NCCL-GDR-001"].reason == "NCCL_NET_GDR_LEVEL not readable from container image"
+
+
+def test_a_condition_using_str_can_actually_fire():
+    """Regression test: Rule.evaluate used to run conditions with no
+    builtins at all, so any condition calling str(...) (like NCCL-GDR-001's
+    str(gpu_type).startswith('H100')) raised NameError internally on every
+    evaluation - silently swallowed into "condition is False" by evaluate's
+    broad except, so the rule looked registered and correct but could never
+    actually fire.
+    """
+    spec = JobSpec(
+        gpu_type=Field("H100-SXM5-80GB", status="resolved", source="test"),
+        nccl_net_gdr_level=Field(3, status="resolved", source="test"),
+    )
+
+    engine = RuleEngine()
+    for rule in BUILTIN_RULES:
+        engine.register(rule)
+    result = engine.check(vars(spec))
+
+    assert "NCCL-GDR-001" in {v.rule.id for v in result.violations}
 
 
 def test_parse_config_round_trips_all_fields_as_resolved():

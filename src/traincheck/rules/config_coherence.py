@@ -1,20 +1,19 @@
-"""Built-in rules for common GPU training misconfigurations."""
+"""Config-coherence rules: internal contradictions within a single resolved
+JobSpec (tp*pp != world size, minAvailable < sum(replicas), IB disabled on
+an IB cluster, ...).
+
+These are authored directly from the config/scheduler spec, never mined
+from the web - there is nothing here for a source URL to confirm, since
+the claim is "these two fields, taken from the same job, don't agree with
+each other," not "component X version A is incompatible with component Y
+version B." Keeping them in their own module means a bad mined
+version-incompatibility candidate (see `version_incompat.py`) can never
+end up alongside - and corrupt - these.
+"""
 
 from traincheck.core import Rule, Severity
 
-BUILTIN_RULES: list[Rule] = [
-    Rule(
-        id="NCCL-RING-001",
-        severity=Severity.ERROR,
-        condition=(
-            "nccl_algo == 'Ring' and nodes > 32 and gpu_type in ('A100', 'A100-SXM4-80GB') and nccl_version < (2, 21)"
-        ),
-        message=(
-            "NCCL Ring algorithm on A100 clusters with >32 nodes has a known "
-            "deadlock risk with NCCL versions prior to 2.21."
-        ),
-        fix_suggestion="Upgrade NCCL to >= 2.21.5 or set nccl_algo='Tree'.",
-    ),
+CONFIG_COHERENCE_RULES: list[Rule] = [
     Rule(
         id="NCCL-IB-001",
         severity=Severity.ERROR,
