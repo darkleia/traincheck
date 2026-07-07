@@ -1,0 +1,3 @@
+model:
+  name: mixtral
+  size_billion_params: 47
