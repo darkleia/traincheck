@@ -1,0 +1,29 @@
+apiVersion: trainer.kubeflow.org/v1alpha1
+kind: TrainJob
+metadata:
+  name: llm-train
+  namespace: ml-team
+spec:
+  runtimeRef:
+    name: torch-distributed
+    kind: ClusterTrainingRuntime
+  trainer:
+    image: nvcr.io/nvidia/pytorch:24.01-py3
+    numNodes: 8
+    command:
+      - torchrun
+      - --nnodes=8
+      - --nproc-per-node=8
+      - train.py
+      - --deepspeed
+      - ds_config.json
+    resourcesPerNode:
+      requests:
+        nvidia.com/gpu: 8
+      limits:
+        nvidia.com/gpu: 8
+    env:
+      - name: NCCL_ALGO
+        value: Ring
+      - name: NCCL_IB_DISABLE
+        value: "0"

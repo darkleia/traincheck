@@ -29,6 +29,19 @@ The launcher and world_size are the more involved pieces:
   GPU limit is only a resource request, not a promise about how many
   processes actually get launched per node, and is used as a last-resort
   stand-in (flagged as such) only when none of the three are set.
+
+Kubeflow Trainer v2's `TrainJob` is a different shape entirely - handled
+by its own `_adapt_trainjob` rather than forced through the v1 pod-spec
+navigation above. Its container isn't inline: `spec.trainer` covers the
+job-specific overrides (image, numNodes, resourcesPerNode, command/args,
+env), but the base pod template - and anything `spec.trainer` doesn't
+override - lives in a separately-defined runtime CR (`spec.runtimeRef`,
+typically a ClusterTrainingRuntime/TrainingRuntime). If that referenced
+manifest isn't one of the files traincheck was given, whatever would have
+come from it (the image, if `spec.trainer.image` doesn't set one; the
+launcher, if `spec.trainer.command`/`args` don't) is reported unknown with
+reason "runtime CR not found" rather than absent, since it may well be set
+there - we just can't check.
 """
 
 import re
@@ -53,6 +66,7 @@ _REPLICA_SPEC_KEYS = {
 }
 
 _HOST_DEPENDENT_REASON = "per-node count is host-dependent"
+_RUNTIME_NOT_FOUND_REASON = "runtime CR not found"
 
 # Kubernetes' own container command/args substitution syntax - distinct
 # from a shell's $VAR/${VAR}, and resolved against the container's own
@@ -62,6 +76,10 @@ _K8S_VAR_REF_RE = re.compile(r"^\$\(([A-Za-z_][A-Za-z0-9_]*)\)$")
 
 def adapt_k8s(path: str, base_dir: str) -> JobSpec:
     doc = load_yaml_file(Path(path))
+
+    if doc.get("kind") == "TrainJob":
+        return _adapt_trainjob(doc, Path(base_dir))
+
     pod_spec, total_replicas = _pod_spec_and_total_replicas(doc)
     container = (pod_spec.get("containers") or [{}])[0]
     job_spec = doc.get("spec") or {}
@@ -152,6 +170,76 @@ def _from_volcano_tasks(tasks: list) -> tuple:
     primary = next((t for t in tasks if t.get("name") == "worker"), tasks[0] if tasks else {})
     pod_spec = ((primary or {}).get("template") or {}).get("spec") or {}
     return pod_spec, total_replicas
+
+
+def _adapt_trainjob(doc: dict, base_dir: Path) -> JobSpec:
+    job_spec = doc.get("spec") or {}
+    trainer = job_spec.get("trainer") or {}
+    source = "k8s:trainjob"
+
+    spec = JobSpec()
+
+    runtime_ref = job_spec.get("runtimeRef") or {}
+    if runtime_ref:
+        runtime_kind = runtime_ref.get("kind") or "ClusterTrainingRuntime"
+        runtime_available = _find_manifest(base_dir, runtime_kind, runtime_ref.get("name")) is not None
+    else:
+        # No runtimeRef at all isn't a real gap to flag - there's nothing
+        # to look up in the first place.
+        runtime_available = True
+
+    num_nodes = safe_int(trainer.get("numNodes"))
+    spec.nodes = resolved_or_absent(num_nodes, source)
+
+    resources_per_node = trainer.get("resourcesPerNode") or {}
+    gpu_limit = safe_int((resources_per_node.get("limits") or {}).get("nvidia.com/gpu"))
+    gpu_request = safe_int((resources_per_node.get("requests") or {}).get("nvidia.com/gpu"))
+    if gpu_limit is None and gpu_request is None:
+        # also accept a bare quantity with no requests/limits split
+        gpu_limit = safe_int(resources_per_node.get("nvidia.com/gpu"))
+    spec.gpus_per_node = _gpu_field(gpu_limit, gpu_request, source)
+
+    gpus_per_node = gpu_limit if gpu_limit is not None else gpu_request
+    if num_nodes is not None and gpus_per_node is not None:
+        spec.world_size = resolved_or_absent(num_nodes * gpus_per_node, source)
+
+    env_vars = {entry["name"]: entry.get("value") for entry in (trainer.get("env") or []) if entry.get("name")}
+
+    command = list(trainer.get("command") or []) + list(trainer.get("args") or [])
+    if command:
+        launcher, _fc, _cp, _co = parse_launcher_tokens(command, lambda value: _resolve_k8s_var(value, env_vars))
+        for name, launcher_field in build_launcher_fields(launcher, f"{source}:command").items():
+            if name == "world_size":
+                continue  # numNodes * resourcesPerNode's GPU count is more authoritative here
+            setattr(spec, name, launcher_field)
+    elif not runtime_available:
+        for name in ("launcher_kind", "launcher_nnodes", "launcher_nproc_per_node"):
+            setattr(spec, name, Field(value=None, status="unknown", reason=_RUNTIME_NOT_FOUND_REASON))
+
+    image_ref = trainer.get("image")
+    image_env = None
+    if image_ref:
+        image_fields = extract_image(image_ref)
+        image_env = image_fields["env"]
+        spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], f"{source}:image")
+        spec.cuda_version = image_fields["cuda"]
+        spec.nccl_version = image_fields["nccl"]
+        spec.framework_version = image_fields["framework"]
+    elif not runtime_available:
+        for name in ("image_pin_status", "cuda_version", "nccl_version", "framework_version"):
+            setattr(spec, name, Field(value=None, status="unknown", reason=_RUNTIME_NOT_FOUND_REASON))
+
+    spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), source)
+    spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), source)
+    spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
+    spec.comm_env = build_comm_env([(f"{source}:image:{image_ref}", image_env), (source, env_vars)])
+
+    for name in _HOST_ENV_FIELDS:
+        host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)
+        setattr(spec, name, host_field)
+        spec.meta.unresolved.append(host_field)
+
+    return spec
 
 
 def _gpu_resources(container: dict) -> tuple[Optional[int], Optional[int]]:
@@ -282,7 +370,7 @@ def _fill_model_config(spec: JobSpec, pod_spec: dict, base_dir: Path) -> None:
         )
         return
 
-    configmap_doc = _find_configmap_manifest(base_dir, configmap_name)
+    configmap_doc = _find_manifest(base_dir, "ConfigMap", configmap_name)
     if configmap_doc is None:
         spec.model_size_billion_params = Field(
             value=None,
@@ -307,12 +395,17 @@ def _model_configmap_volume_name(pod_spec: dict) -> Optional[str]:
     return None
 
 
-def _find_configmap_manifest(base_dir: Path, name: str) -> Optional[dict]:
-    if not base_dir.is_dir():
+def _find_manifest(base_dir: Path, kind: str, name: Optional[str]) -> Optional[dict]:
+    """Find a sibling manifest of the given kind/name among base_dir's own
+    YAML files - used both for a PyTorchJob's ConfigMap-mounted model
+    config and a TrainJob's referenced runtime CR, neither of which are
+    inline in the job manifest itself.
+    """
+    if not name or not base_dir.is_dir():
         return None
     for candidate in sorted(base_dir.glob("*.yaml")) + sorted(base_dir.glob("*.yml")):
         doc = load_yaml_file(candidate)
-        if doc.get("kind") == "ConfigMap" and (doc.get("metadata") or {}).get("name") == name:
+        if doc.get("kind") == kind and (doc.get("metadata") or {}).get("name") == name:
             return doc
     return None
 

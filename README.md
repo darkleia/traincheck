@@ -23,7 +23,7 @@ Anyone submitting distributed training jobs to a shared GPU cluster who's tired 
 
 - Slurm (sbatch scripts)
 - PBS / Torque, LSF, SGE (same idea as Slurm — a directive block plus a shell body)
-- Kubernetes / Kubeflow (PyTorchJob, MPIJob, TFJob, Volcano Job, plain batch Job)
+- Kubernetes / Kubeflow (PyTorchJob, MPIJob, TFJob, Volcano Job, plain batch Job, and the newer TrainJob from Kubeflow Trainer v2)
 - SkyPilot
 - Ray (cluster.yaml + job.py)
 - torchx

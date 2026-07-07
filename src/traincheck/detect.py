@@ -39,8 +39,8 @@ _HPC_DIRECTIVES = (
     (re.compile(r"^\s*#\$", re.MULTILINE), Stack.SGE),
 )
 
-_K8S_CRD_KINDS = {"PyTorchJob", "MPIJob", "TFJob", "Job"}
-_K8S_CRD_API_HINTS = ("kubeflow", "volcano")
+_K8S_CRD_KINDS = {"PyTorchJob", "MPIJob", "TFJob", "Job", "TrainJob"}
+_K8S_CRD_API_HINTS = ("kubeflow", "volcano", "trainer.kubeflow.org")
 
 _NATIVE_KEYS = {
     "cluster",
