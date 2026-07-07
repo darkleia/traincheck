@@ -46,14 +46,26 @@ def adapt_deepspeed(path: str) -> dict[str, Field]:
     }
 
 
+_AUTO_REASON = (
+    'value is "auto" - DeepSpeed fills this in at runtime from the HF '
+    "Trainer/Accelerate's own args, so it can't be read statically"
+)
+
+
 def _field_for(container: dict[str, Any], key: str, source: str) -> Field:
     if key not in container:
         return Field(value=None, status="absent", source=source)
-    return Field(value=container[key], status="resolved", source=source, confidence=1.0)
+    value = container[key]
+    if value == "auto":
+        return Field(value=None, status="unknown", reason=_AUTO_REASON)
+    return Field(value=value, status="resolved", source=source, confidence=1.0)
 
 
 def _field_for_any(container: dict[str, Any], keys: tuple, source: str) -> Field:
     for key in keys:
         if key in container:
-            return Field(value=container[key], status="resolved", source=source, confidence=1.0)
+            value = container[key]
+            if value == "auto":
+                return Field(value=None, status="unknown", reason=_AUTO_REASON)
+            return Field(value=value, status="resolved", source=source, confidence=1.0)
     return Field(value=None, status="absent", source=source)

@@ -17,7 +17,7 @@ from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, resolved_or_absent
-from traincheck.utils import load_yaml_file, safe_int
+from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
 _HOST_ENV_REASON = "host fact, not in any file"
@@ -47,7 +47,7 @@ def adapt_skypilot(path: str, base_dir: str) -> JobSpec:
     envs = doc.get("envs") or {}
     spec.nccl_algo = resolved_or_absent(envs.get("NCCL_ALGO"), source)
     spec.nccl_ib_disable = resolved_or_absent(safe_int(envs.get("NCCL_IB_DISABLE")), source)
-    spec.nccl_net_gdr_level = resolved_or_absent(safe_int(envs.get("NCCL_NET_GDR_LEVEL")), source)
+    spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(envs.get("NCCL_NET_GDR_LEVEL")), source)
 
     setup_text = doc.get("setup") or ""
     run_text = doc.get("run") or ""

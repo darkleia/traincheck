@@ -20,7 +20,7 @@ from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, resolved_or_absent
-from traincheck.utils import safe_int
+from traincheck.utils import parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
 _HOST_ENV_REASON = "host fact, not in any file"
@@ -62,7 +62,7 @@ def adapt_bare(path: str, base_dir: str) -> JobSpec:
     env_vars = shell["env_vars"]
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), source)
     spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), source)
-    spec.nccl_net_gdr_level = resolved_or_absent(safe_int(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
+    spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), source)
 
     image_ref = shell["image_ref"]
     if image_ref:

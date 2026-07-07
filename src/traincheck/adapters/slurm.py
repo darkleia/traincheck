@@ -14,9 +14,10 @@ import re
 from typing import Optional
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
+from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, resolved_or_absent
-from traincheck.utils import parse_version, safe_int
+from traincheck.utils import parse_gdr_level, parse_version, safe_int
 from traincheck.validator import JobSpec
 
 _SBATCH_DIRECTIVE_RE = re.compile(r"^\s*#SBATCH\s+--([\w-]+)=(\S+)\s*$")
@@ -60,8 +61,19 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), "shell")
     spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), "shell")
     spec.nccl_net_gdr_level = resolved_or_absent(
-        safe_int(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell"
+        parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell"
     )
+
+    image_ref = shell["image_ref"]
+    if image_ref:
+        image_fields = extract_image(image_ref)
+        spec.image_pin_status = resolved_or_absent(image_fields["pin_status"], "shell:image")
+        if spec.cuda_version.status != "resolved":
+            spec.cuda_version = image_fields["cuda"]
+        if spec.nccl_version.status != "resolved":
+            spec.nccl_version = image_fields["nccl"]
+        if spec.framework_version.status != "resolved":
+            spec.framework_version = image_fields["framework"]
 
     framework_config = shell["framework_config"]
     if framework_config is not None:

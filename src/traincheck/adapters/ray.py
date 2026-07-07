@@ -23,7 +23,7 @@ from typing import Any, Optional
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.lockfile import parse_pip_list
 from traincheck.ir import Field, resolved_or_absent
-from traincheck.utils import load_yaml_file, safe_int
+from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
 _HOST_ENV_REASON = "host fact, not in any file"
@@ -126,7 +126,7 @@ def _fill_from_job_py(spec: JobSpec, text: str, source: str) -> None:
         spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), job_source)
         spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), job_source)
         spec.nccl_net_gdr_level = resolved_or_absent(
-            safe_int(env_vars.get("NCCL_NET_GDR_LEVEL")), job_source
+            parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), job_source
         )
     else:
         spec.nccl_algo = env_vars_field

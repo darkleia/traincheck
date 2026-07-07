@@ -7,6 +7,22 @@ from traincheck.adapters.bare import adapt_bare
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples" / "bare"
 
 
+def test_gdr_level_named_form_resolves_not_lost_to_int_cast(tmp_path):
+    """Regression test: NCCL_NET_GDR_LEVEL accepts named distances
+    (LOC/PIX/PXB/PHB/SYS) as well as numbers - these used to be silently
+    dropped to "absent" by an int() cast that only handled the numeric form.
+    """
+    script = tmp_path / "run.sh"
+    script.write_text(
+        "#!/bin/bash\nexport NCCL_NET_GDR_LEVEL=PXB\ntorchrun --nnodes=1 --nproc-per-node=8 train.py\n"
+    )
+
+    spec = adapt_bare(str(script), base_dir=str(tmp_path))
+
+    assert spec.nccl_net_gdr_level.status == "resolved"
+    assert spec.nccl_net_gdr_level.value == "PXB"
+
+
 def _adapt():
     return adapt_bare(str(EXAMPLES_DIR / "run.sh"), base_dir=str(EXAMPLES_DIR))
 

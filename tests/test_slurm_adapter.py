@@ -46,6 +46,22 @@ def test_adapt_slurm_merges_parallelism_from_referenced_deepspeed_config():
     assert spec.tensor_parallel.source.startswith("deepspeed:")
 
 
+def test_adapt_slurm_resolves_the_container_image():
+    """Regression test: adapt_slurm used to never call extract_image at
+    all, even though train.sbatch has a --container-image= reference and
+    extract_shell correctly picks it up - every other adapter resolved
+    images, this one silently didn't.
+    """
+    spec = adapt_slurm(str(EXAMPLES_DIR / "train.sbatch"), base_dir=str(EXAMPLES_DIR))
+
+    assert spec.image_pin_status.status == "resolved"
+    assert spec.image_pin_status.value == "pinned_soft"
+    # module load cuda/12.2 already resolved cuda_version; the image must
+    # not clobber a more direct signal that's already there
+    assert spec.cuda_version.value == "12.2"
+    assert spec.cuda_version.source == "shell"
+
+
 def test_adapt_slurm_reports_host_env_facts_as_unknown_and_unresolved():
     spec = adapt_slurm(str(EXAMPLES_DIR / "train.sbatch"), base_dir=str(EXAMPLES_DIR))
 

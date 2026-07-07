@@ -1,5 +1,6 @@
 """Tests for the DeepSpeed config adapter."""
 
+import json
 from pathlib import Path
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
@@ -35,3 +36,36 @@ def test_adapt_deepspeed_missing_key_is_absent_not_unknown():
     data_parallel = fields["data_parallel"]
     assert data_parallel.status == "absent"
     assert data_parallel.value is None
+
+
+def test_adapt_deepspeed_auto_value_is_unknown_not_a_literal_string(tmp_path):
+    """Regression test: DeepSpeed/HF Trainer fill "auto" fields in at
+    runtime from their own args - reading "auto" back as a resolved value
+    is actively wrong, not just incomplete.
+    """
+    config_path = tmp_path / "ds_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "train_micro_batch_size_per_gpu": "auto",
+                "gradient_accumulation_steps": 8,
+                "zero_optimization": {"stage": "auto"},
+                "tensor_parallel_size": 2,
+            }
+        )
+    )
+
+    fields = adapt_deepspeed(str(config_path))
+
+    assert fields["train_micro_batch_size_per_gpu"].status == "unknown"
+    assert fields["train_micro_batch_size_per_gpu"].value is None
+    assert fields["train_micro_batch_size_per_gpu"].reason
+
+    assert fields["sharding"].status == "unknown"
+    assert fields["sharding"].reason
+
+    # real values elsewhere in the same file are unaffected
+    assert fields["gradient_accumulation_steps"].status == "resolved"
+    assert fields["gradient_accumulation_steps"].value == 8
+    assert fields["tensor_parallel"].status == "resolved"
+    assert fields["tensor_parallel"].value == 2
