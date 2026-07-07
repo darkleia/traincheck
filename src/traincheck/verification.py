@@ -15,7 +15,7 @@ from typing import Optional
 from traincheck.core import Result
 from traincheck.validator import JobSpec
 
-_HOST_ENV_CHECKS = {
+HOST_ENV_CHECKS = {
     "driver_version": (
         "NVIDIA driver version",
         "nvidia-smi --query-gpu=driver_version --format=csv,noheader",
@@ -34,12 +34,12 @@ class VerificationItem:
 
     @property
     def check_command(self) -> Optional[str]:
-        check = _HOST_ENV_CHECKS.get(self.field_name)
+        check = HOST_ENV_CHECKS.get(self.field_name)
         return check[1] if check else None
 
     @property
     def display(self) -> str:
-        check = _HOST_ENV_CHECKS.get(self.field_name)
+        check = HOST_ENV_CHECKS.get(self.field_name)
         if check:
             description, command = check
             return f"verify {description}: {command}"

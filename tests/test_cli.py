@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -122,3 +123,58 @@ def test_cli_check_reports_a_clean_error_for_a_scheduler_without_an_adapter():
     assert result.exit_code == 2
     assert "doesn't support this stack yet" in result.output
     assert "Traceback" not in result.output
+
+
+def _fake_completed(stdout: str, returncode: int = 0):
+    return type("Completed", (), {"stdout": stdout, "returncode": returncode})()
+
+
+def test_cli_check_without_probe_host_has_no_host_facts_section():
+    result = runner.invoke(app, ["check", str(EXAMPLES_DIR / "train.sbatch")])
+
+    assert "Host facts" not in result.stdout
+
+
+def test_cli_check_probe_host_resolves_and_shows_host_facts():
+    def fake_run(cmd, **kwargs):
+        outputs = {
+            "nvidia-smi": "535.129.03\n",
+            "uname": "5.15.0-generic\n",
+            "ofed_info": "MLNX_OFED_LINUX-5.8-1.0.1.1\n",
+            "lsmod": "nvidia_peermem 16384 0\n",
+        }
+        return _fake_completed(outputs.get(cmd[0], ""))
+
+    with patch("traincheck.hostprobe.subprocess.run", side_effect=fake_run):
+        result = runner.invoke(app, ["check", str(EXAMPLES_DIR / "train.sbatch"), "--probe-host"])
+
+    assert "Host facts (probed on this machine)" in result.stdout
+    assert "535.129.03" in result.stdout
+    assert "5.15.0-generic" in result.stdout
+    # all four resolved, so nothing host-related should remain in "Needs verification"
+    assert "verify NVIDIA driver version" not in result.stdout
+    assert result.exit_code == 0
+
+
+def test_cli_check_probe_host_json_includes_host_facts():
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "nvidia-smi":
+            return _fake_completed("535.129.03\n")
+        return _fake_completed("", returncode=1)
+
+    with patch("traincheck.hostprobe.subprocess.run", side_effect=fake_run):
+        result = runner.invoke(
+            app, ["check", str(EXAMPLES_DIR / "train.sbatch"), "--probe-host", "--json"]
+        )
+
+    payload = json.loads(result.stdout)
+    assert payload["host_facts"]["driver_version"] == {"status": "resolved", "value": "535.129.03"}
+    assert payload["host_facts"]["kernel_version"]["status"] == "unknown"
+
+
+def test_cli_check_probe_host_still_lists_unresolvable_facts():
+    with patch("traincheck.hostprobe.subprocess.run", side_effect=FileNotFoundError):
+        result = runner.invoke(app, ["check", str(EXAMPLES_DIR / "train.sbatch"), "--probe-host"])
+
+    assert "Host facts (probed on this machine)" in result.stdout
+    assert "still unknown" in result.stdout
