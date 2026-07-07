@@ -21,6 +21,11 @@ class Rule:
     condition: str
     message: str
     fix_suggestion: Optional[str] = None
+    # An optional Python expression (evaluated the same way `condition` is)
+    # producing a short, value-specific supplement to the static `message` -
+    # e.g. the actual minAvailable/replica counts that tripped a
+    # gang-scheduling rule, rather than just the generic rule description.
+    detail: Optional[str] = None
 
     def evaluate(self, context: dict[str, Any]) -> bool:
         """Evaluate the rule's condition against the given context.
@@ -31,11 +36,20 @@ class Rule:
         except Exception:
             return False
 
+    def render_detail(self, context: dict[str, Any]) -> Optional[str]:
+        if self.detail is None:
+            return None
+        try:
+            return str(eval(self.detail, {"__builtins__": {}}, context))
+        except Exception:
+            return None
+
 
 @dataclass
 class Violation:
     rule: Rule
     context: dict[str, Any]
+    detail: Optional[str] = None
 
 
 @dataclass
@@ -110,6 +124,6 @@ class RuleEngine:
                 continue
 
             if rule.evaluate(flat):
-                violations.append(Violation(rule=rule, context=flat))
+                violations.append(Violation(rule=rule, context=flat, detail=rule.render_detail(flat)))
 
         return Result(violations=violations, needs_verification=needs_verification)

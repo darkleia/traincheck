@@ -111,6 +111,11 @@ def adapt_k8s(path: str, base_dir: str) -> JobSpec:
     spec.affinity = resolved_or_absent(pod_spec.get("affinity"), source)
     spec.tolerations = resolved_or_absent(pod_spec.get("tolerations"), source)
 
+    # Gang scheduling
+    spec.task_replicas_total = resolved_or_absent(total_replicas, source)
+    spec.queue_name = resolved_or_absent(_queue_name_label(doc), source)
+    spec.min_available = _resolve_min_available(doc, Path(base_dir))
+
     # Software: env vars straight off the container
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), source)
     spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), source)
@@ -170,6 +175,41 @@ def _from_volcano_tasks(tasks: list) -> tuple:
     primary = next((t for t in tasks if t.get("name") == "worker"), tasks[0] if tasks else {})
     pod_spec = ((primary or {}).get("template") or {}).get("spec") or {}
     return pod_spec, total_replicas
+
+
+_KUEUE_QUEUE_LABEL = "kueue.x-k8s.io/queue-name"
+
+
+def _queue_name_label(doc: dict) -> Optional[str]:
+    labels = (doc.get("metadata") or {}).get("labels") or {}
+    return labels.get(_KUEUE_QUEUE_LABEL)
+
+
+def _resolve_min_available(doc: dict, base_dir: Path) -> Field:
+    """A Volcano Job's own spec.minAvailable is inline; a PyTorchJob/
+    MPIJob/TFJob's gang setting instead lives on a separately-defined
+    PodGroup CR (matched here by name, the common convention when Volcano
+    gang-schedules a Kubeflow-operator job) - if no such manifest is
+    provided alongside the job, this comes back absent, which is exactly
+    the signal the GANG-002 rule looks for (not "unknown": the rule needs
+    to actually fire on a real gap, not be deferred to needs_verification).
+    """
+    kind = doc.get("kind")
+    source = "k8s"
+
+    if kind == "Job" and "volcano" in str(doc.get("apiVersion", "")):
+        job_spec = doc.get("spec") or {}
+        return resolved_or_absent(safe_int(job_spec.get("minAvailable")), source)
+
+    if kind in _REPLICA_SPEC_KEYS:
+        job_name = (doc.get("metadata") or {}).get("name")
+        podgroup = _find_manifest(base_dir, "PodGroup", job_name)
+        if podgroup is None:
+            return Field(value=None, status="absent", source=source)
+        min_available = safe_int((podgroup.get("spec") or {}).get("minAvailable"))
+        return resolved_or_absent(min_available, f"{source}:podgroup:{job_name}")
+
+    return Field(value=None, status="absent", source=source)
 
 
 def _adapt_trainjob(doc: dict, base_dir: Path) -> JobSpec:

@@ -93,6 +93,13 @@ class JobSpec:
     scheduler_name: Field = field(default_factory=_unset)
     affinity: Field = field(default_factory=_unset)
     tolerations: Field = field(default_factory=_unset)
+    # Gang scheduling - a job's minAvailable (its own, for a Volcano Job, or
+    # a referenced PodGroup's, for a PyTorchJob/MPIJob/TFJob) compared
+    # against its total task/replica count; queue_name is a Kueue
+    # queue-name label, present on any k8s job kind regardless of scheduler.
+    min_available: Field = field(default_factory=_unset)
+    task_replicas_total: Field = field(default_factory=_unset)
+    queue_name: Field = field(default_factory=_unset)
     # Image
     image_pin_status: Field = field(default_factory=_unset)
     # Dependencies
@@ -163,6 +170,9 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         scheduler_name=_resolved(None),
         affinity=_resolved(None),
         tolerations=_resolved(None),
+        min_available=_resolved(None),
+        task_replicas_total=_resolved(None),
+        queue_name=_resolved(None),
         image_pin_status=_resolved(None),
         dependency_constraints=_resolved(None),
     )

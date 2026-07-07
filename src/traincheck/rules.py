@@ -96,4 +96,43 @@ BUILTIN_RULES: list[Rule] = [
         ),
         fix_suggestion=("Consider reducing checkpoint frequency or enabling async checkpointing."),
     ),
+    Rule(
+        id="GANG-001",
+        severity=Severity.WARN,
+        condition=(
+            "min_available is not None and task_replicas_total is not None and min_available < task_replicas_total"
+        ),
+        message=(
+            "minAvailable is less than the job's total task replicas - the scheduler can admit a partial "
+            "gang, and the job will hang waiting for pods that never get scheduled alongside it."
+        ),
+        fix_suggestion=(
+            "Set minAvailable equal to the sum of all task replicas so the whole gang is admitted atomically."
+        ),
+        detail="f'minAvailable={min_available}, sum(replicas)={task_replicas_total}'",
+    ),
+    Rule(
+        id="GANG-002",
+        severity=Severity.WARN,
+        condition="scheduler_name == 'volcano' and min_available is None",
+        message=(
+            "schedulerName is volcano but no PodGroup/minAvailable was found - without gang scheduling, "
+            "Volcano may admit only some of the job's pods and the rest will wait indefinitely, deadlocking "
+            "collective-communication training."
+        ),
+        fix_suggestion="Provide a PodGroup (or spec.minAvailable) matching the job's total replica count.",
+        detail="f'scheduler_name={scheduler_name!r}'",
+    ),
+    Rule(
+        id="GANG-003",
+        severity=Severity.WARN,
+        condition="queue_name is not None and scheduler_name != 'volcano'",
+        message=(
+            "Job is queued via a Kueue queue-name label but has no gang scheduler configured - Kueue admits "
+            "the job as a unit but doesn't itself guarantee all its pods start together, so partial "
+            "admission is still possible."
+        ),
+        fix_suggestion="Pair the Kueue queue with a gang-aware scheduler/integration (e.g. Volcano) or a PodGroup.",
+        detail="f'queue_name={queue_name!r}, scheduler_name={scheduler_name!r}'",
+    ),
 ]

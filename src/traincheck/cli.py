@@ -90,7 +90,8 @@ def _print_table(
         for violation in result.violations:
             rule = violation.rule
             icon, color = ICONS[rule.severity], COLORS[rule.severity]
-            table.add_row(icon, f"[{color}][{rule.severity.value.upper()}] {rule.id}[/{color}]: {rule.message}")
+            message = f"{rule.message} ({violation.detail})" if violation.detail else rule.message
+            table.add_row(icon, f"[{color}][{rule.severity.value.upper()}] {rule.id}[/{color}]: {message}")
             if rule.fix_suggestion:
                 table.add_row("", f"[dim]Fix: {rule.fix_suggestion}[/dim]")
         console.print(table)
@@ -136,6 +137,7 @@ def _print_json(
                 "id": v.rule.id,
                 "severity": v.rule.severity.value,
                 "message": v.rule.message,
+                "detail": v.detail,
                 "fix_suggestion": v.rule.fix_suggestion,
             }
             for v in result.violations
