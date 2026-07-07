@@ -111,6 +111,19 @@ def build_launcher_fields(launcher: Optional[dict], source: str) -> dict[str, Fi
     else:
         fields["world_size"] = Field(value=None, status="absent", source=source)
 
+    # Megatron-LM model-parallelism flags, read straight off the same
+    # launch line. tensor_parallel/pipeline_parallel are shared with
+    # DeepSpeed configs (which a later, more specific merge may still
+    # override); sequence/expert/context have no other source.
+    fields["tensor_parallel"] = resolved_or_absent(launcher.get("tensor_model_parallel_size"), source)
+    fields["pipeline_parallel"] = resolved_or_absent(launcher.get("pipeline_model_parallel_size"), source)
+    fields["expert_parallel"] = resolved_or_absent(launcher.get("expert_model_parallel_size"), source)
+    fields["context_parallel"] = resolved_or_absent(launcher.get("context_parallel_size"), source)
+    if launcher.get("sequence_parallel"):
+        fields["sequence_parallel"] = Field(value=True, status="resolved", source=source, confidence=1.0)
+    else:
+        fields["sequence_parallel"] = Field(value=None, status="absent", source=source)
+
     return fields
 
 

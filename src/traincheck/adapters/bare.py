@@ -16,6 +16,8 @@ other adapters use.
 import os
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
+from traincheck.adapters.hpc_shell import derive_data_parallel
+from traincheck.extractors.accelerate import fill_fsdp_sharding
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
@@ -73,6 +75,8 @@ def adapt_bare(path: str, base_dir: str) -> JobSpec:
 
     _fill_deepspeed(spec, shell, base_dir)
     _fill_hydra(spec, shell, base_dir)
+    fill_fsdp_sharding(spec, shell["launcher"], base_dir)
+    derive_data_parallel(spec)
 
     for name in _HOST_ENV_FIELDS:
         host_field = Field(value=None, status="unknown", reason=_HOST_ENV_REASON)
@@ -92,9 +96,16 @@ def _fill_deepspeed(spec: JobSpec, shell: dict, base_dir: str) -> None:
         return
 
     ds_fields = adapt_deepspeed(ds_config_path)
-    spec.sharding = ds_fields["sharding"]
-    spec.tensor_parallel = ds_fields["tensor_parallel"]
-    spec.pipeline_parallel = ds_fields["pipeline_parallel"]
+    # Guarded: a Megatron launch flag may have already resolved
+    # tensor_parallel/pipeline_parallel/sharding (a real combo in
+    # Megatron-DeepSpeed setups) - don't clobber that with "absent" just
+    # because the DeepSpeed config doesn't also set it.
+    if ds_fields["sharding"].status == "resolved":
+        spec.sharding = ds_fields["sharding"]
+    if ds_fields["tensor_parallel"].status == "resolved":
+        spec.tensor_parallel = ds_fields["tensor_parallel"]
+    if ds_fields["pipeline_parallel"].status == "resolved":
+        spec.pipeline_parallel = ds_fields["pipeline_parallel"]
     spec.data_parallel = ds_fields["data_parallel"]
     spec.train_micro_batch_size_per_gpu = ds_fields["train_micro_batch_size_per_gpu"]
     spec.gradient_accumulation_steps = ds_fields["gradient_accumulation_steps"]

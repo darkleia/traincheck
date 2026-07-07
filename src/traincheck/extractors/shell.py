@@ -60,6 +60,20 @@ _VALUE_FLAGS = {
     "--config": "config",
     "--config-name": "config",
     "--config_name": "config",
+    # Accelerate's own launch config (kept distinct from Hydra's --config/
+    # --config-name above - same flag position, unrelated file schema).
+    "--config_file": "accelerate_config",
+    # Megatron-LM model-parallelism flags. These are read straight off the
+    # training script's own argv, mixed in with torchrun/accelerate's flags
+    # on the same launch line - same as --deepspeed/--config already are.
+    "--tensor-model-parallel-size": "tensor_model_parallel_size",
+    "--tensor_model_parallel_size": "tensor_model_parallel_size",
+    "--pipeline-model-parallel-size": "pipeline_model_parallel_size",
+    "--pipeline_model_parallel_size": "pipeline_model_parallel_size",
+    "--expert-model-parallel-size": "expert_model_parallel_size",
+    "--expert_model_parallel_size": "expert_model_parallel_size",
+    "--context-parallel-size": "context_parallel_size",
+    "--context_parallel_size": "context_parallel_size",
 }
 # Boolean switches: presence alone is the signal, no value token follows.
 _SWITCH_FLAGS = {
@@ -68,6 +82,8 @@ _SWITCH_FLAGS = {
     # JobSpec field reads it yet, but it must still be recognized so it
     # isn't mistaken for a bare config override.
     "--use_env": "use_env",
+    "--sequence-parallel": "sequence_parallel",
+    "--sequence_parallel": "sequence_parallel",
 }
 
 _HOST_DEPENDENT_NPROC = {"gpu", "cpu", "xpu", "auto"}
@@ -215,6 +231,15 @@ def parse_launcher_tokens(
         "max_restarts_is_default": max_restarts_raw is None and kind == "torchrun",
         "standalone": standalone,
         "standalone_conflict": standalone and rdzv_endpoint is not None,
+        # Accelerate's own launch config, distinct from Hydra's config_path
+        # returned below.
+        "accelerate_config": resolved("accelerate_config"),
+        # Megatron-LM model-parallelism flags.
+        "tensor_model_parallel_size": _as_int(resolved("tensor_model_parallel_size")),
+        "pipeline_model_parallel_size": _as_int(resolved("pipeline_model_parallel_size")),
+        "expert_model_parallel_size": _as_int(resolved("expert_model_parallel_size")),
+        "context_parallel_size": _as_int(resolved("context_parallel_size")),
+        "sequence_parallel": "sequence_parallel" in switches,
     }
     framework_config = raw.get("deepspeed")
     config_path = resolved("config")

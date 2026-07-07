@@ -49,7 +49,7 @@ Exit code is 1 if there's a real violation, 0 otherwise — verification items d
 
 ## status
 
-Still early. Accelerate configs aren't parsed yet. Issues and PRs welcome.
+Still early. Accelerate configs are only read for their FSDP sharding strategy so far, not the rest (num_processes, DeepSpeed-via-Accelerate, etc). Issues and PRs welcome.
 
 ## development
 

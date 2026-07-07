@@ -61,6 +61,24 @@ BUILTIN_RULES: list[Rule] = [
         fix_suggestion=("Adjust parallelism settings so TP * PP * DP = nodes * gpus_per_node."),
     ),
     Rule(
+        id="PARALLEL-002",
+        severity=Severity.ERROR,
+        condition=(
+            "tensor_parallel is not None "
+            "and pipeline_parallel is not None "
+            "and world_size is not None "
+            "and tensor_parallel * pipeline_parallel != 0 "
+            "and world_size % (tensor_parallel * pipeline_parallel) != 0"
+        ),
+        message=(
+            "tensor_parallel * pipeline_parallel does not evenly divide world_size - the model-parallel "
+            "group size isn't a clean divisor of the total GPU count, so the job can't actually form "
+            "complete replica groups."
+        ),
+        fix_suggestion="Adjust tensor_parallel/pipeline_parallel or world_size so tp * pp evenly divides world_size.",
+        detail="f'tensor_parallel={tensor_parallel}, pipeline_parallel={pipeline_parallel}, world_size={world_size}'",
+    ),
+    Rule(
         id="MEMORY-001",
         severity=Severity.WARN,
         condition=(

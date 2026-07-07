@@ -75,6 +75,11 @@ class JobSpec:
     pipeline_parallel: Field = field(default_factory=_unset)
     data_parallel: Field = field(default_factory=_unset)
     sharding: Field = field(default_factory=_unset)
+    # Megatron-LM's other model-parallel axes - distinct from tensor/
+    # pipeline above, which DeepSpeed configs also set.
+    sequence_parallel: Field = field(default_factory=_unset)
+    expert_parallel: Field = field(default_factory=_unset)
+    context_parallel: Field = field(default_factory=_unset)
     # Model / batch
     model_size_billion_params: Field = field(default_factory=_unset)
     train_micro_batch_size_per_gpu: Field = field(default_factory=_unset)
@@ -157,6 +162,9 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         pipeline_parallel=_resolved(parallelism.get("pipeline_parallel")),
         data_parallel=_resolved(parallelism.get("data_parallel")),
         sharding=_resolved(None),
+        sequence_parallel=_resolved(None),
+        expert_parallel=_resolved(None),
+        context_parallel=_resolved(None),
         model_size_billion_params=_resolved(config.get("model", {}).get("size_billion_params")),
         train_micro_batch_size_per_gpu=_resolved(None),
         gradient_accumulation_steps=_resolved(None),

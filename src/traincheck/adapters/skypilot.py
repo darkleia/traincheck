@@ -126,10 +126,16 @@ def _fill_from_config(spec: JobSpec, shell: dict, base_dir: str) -> None:
     hydra_fields = extract_hydra(config_full_path, overrides=shell["config_overrides"])
     source = f"hydra:{config_full_path}"
 
-    spec.tensor_parallel = resolved_or_absent(hydra_fields.get("tensor_parallel"), source)
-    spec.pipeline_parallel = resolved_or_absent(hydra_fields.get("pipeline_parallel"), source)
+    # Guarded: a Megatron launch flag may have already resolved
+    # tensor_parallel/pipeline_parallel/sharding - don't clobber that with
+    # "absent" just because the Hydra config doesn't also set it.
+    if hydra_fields.get("tensor_parallel") is not None:
+        spec.tensor_parallel = resolved_or_absent(hydra_fields["tensor_parallel"], source)
+    if hydra_fields.get("pipeline_parallel") is not None:
+        spec.pipeline_parallel = resolved_or_absent(hydra_fields["pipeline_parallel"], source)
+    if hydra_fields.get("sharding") is not None:
+        spec.sharding = resolved_or_absent(hydra_fields["sharding"], source)
     spec.data_parallel = resolved_or_absent(hydra_fields.get("data_parallel"), source)
-    spec.sharding = resolved_or_absent(hydra_fields.get("sharding"), source)
 
     model = hydra_fields.get("model") or {}
     spec.model_size_billion_params = resolved_or_absent(model.get("size_billion_params"), source)

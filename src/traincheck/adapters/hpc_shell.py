@@ -14,6 +14,7 @@ import os
 from typing import Optional
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
+from traincheck.extractors.accelerate import fill_fsdp_sharding
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
@@ -72,13 +73,21 @@ def apply_shell_body(spec: JobSpec, body: str, base_dir: str, extra_env: Optiona
         ds_config_path = os.path.join(base_dir, framework_config)
         if os.path.isfile(ds_config_path):
             ds_fields = adapt_deepspeed(ds_config_path)
-            spec.sharding = ds_fields["sharding"]
-            spec.tensor_parallel = ds_fields["tensor_parallel"]
-            spec.pipeline_parallel = ds_fields["pipeline_parallel"]
+            # Guarded: a Megatron launch flag may have already resolved
+            # tensor_parallel/pipeline_parallel/sharding (a real combo in
+            # Megatron-DeepSpeed setups) - don't clobber that with "absent"
+            # just because the DeepSpeed config doesn't also set it.
+            if ds_fields["sharding"].status == "resolved":
+                spec.sharding = ds_fields["sharding"]
+            if ds_fields["tensor_parallel"].status == "resolved":
+                spec.tensor_parallel = ds_fields["tensor_parallel"]
+            if ds_fields["pipeline_parallel"].status == "resolved":
+                spec.pipeline_parallel = ds_fields["pipeline_parallel"]
             spec.data_parallel = ds_fields["data_parallel"]
             spec.train_micro_batch_size_per_gpu = ds_fields["train_micro_batch_size_per_gpu"]
             spec.gradient_accumulation_steps = ds_fields["gradient_accumulation_steps"]
 
+    fill_fsdp_sharding(spec, shell["launcher"], base_dir)
     derive_data_parallel(spec)
 
     for name in HOST_ENV_FIELDS:
@@ -92,8 +101,12 @@ def derive_data_parallel(spec: JobSpec) -> None:
 
     The DeepSpeed adapter always leaves data_parallel absent, since a
     DeepSpeed config alone never carries world size. By this point,
-    world_size and tp/pp (if a DeepSpeed config was merged in) may both be
-    resolved, so it can be derived here.
+    world_size and tp/pp (if a DeepSpeed config or Megatron launch flags
+    resolved them) may both be known, so it can be derived here - but only
+    when tp*pp actually divides world_size evenly. When it doesn't, the
+    model-parallel grouping itself is broken (PARALLEL-002 flags exactly
+    this), and a floor-divided data_parallel would just be a misleading
+    number, not a real replica count.
     """
     if spec.world_size.status != "resolved":
         return
@@ -103,6 +116,8 @@ def derive_data_parallel(spec: JobSpec) -> None:
     tp = spec.tensor_parallel.value
     pp = spec.pipeline_parallel.value
     if not tp or not pp:
+        return
+    if spec.world_size.value % (tp * pp) != 0:
         return
 
     spec.data_parallel = Field(
