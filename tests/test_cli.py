@@ -19,6 +19,9 @@ runner = CliRunner()
 # (see test_resolve_stacks.py for why torchx's is component.py, not run.sh).
 ALL_STACK_ENTRYPOINTS = [
     EXAMPLES_ROOT / "slurm" / "train.sbatch",
+    EXAMPLES_ROOT / "pbs" / "train.pbs",
+    EXAMPLES_ROOT / "lsf" / "train.lsf",
+    EXAMPLES_ROOT / "sge" / "train.sge",
     EXAMPLES_ROOT / "k8s_crd" / "pytorchjob.yaml",
     EXAMPLES_ROOT / "skypilot" / "task.yaml",
     EXAMPLES_ROOT / "ray" / "cluster.yaml",
@@ -109,14 +112,6 @@ def test_cli_check_reports_a_clean_error_for_an_unsupported_stack(tmp_path):
     empty.write_text("")
 
     result = runner.invoke(app, ["check", str(empty)])
-
-    assert result.exit_code == 2
-    assert "doesn't support this stack yet" in result.output
-    assert "Traceback" not in result.output
-
-
-def test_cli_check_reports_a_clean_error_for_a_scheduler_without_an_adapter():
-    result = runner.invoke(app, ["check", str(EXAMPLES_ROOT / "lsf" / "train.lsf")])
 
     assert result.exit_code == 2
     assert "doesn't support this stack yet" in result.output

@@ -255,7 +255,11 @@ def _parse_nproc(value: Optional[str]) -> tuple[Optional[int], bool]:
 def _tokenize(line: str) -> list[str]:
     try:
         trees = bashlex.parse(line)
-    except bashlex.errors.ParsingError:
+    except (bashlex.errors.ParsingError, NotImplementedError):
+        # NotImplementedError: bashlex's grammar doesn't cover every real
+        # shell construct (e.g. `$((...))` arithmetic expansion) - fall
+        # back to a naive split rather than let a script feature bashlex
+        # doesn't support crash the whole extraction.
         return line.split()
 
     words: list[str] = []

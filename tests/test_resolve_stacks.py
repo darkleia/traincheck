@@ -31,6 +31,9 @@ _RESOURCE_OR_LAUNCHER_FIELDS = (
 # (a shell script invoking the `torchx` CLI) doesn't match.
 STACK_CASES = [
     ("slurm", EXAMPLES_ROOT / "slurm" / "train.sbatch", "slurm"),
+    ("pbs", EXAMPLES_ROOT / "pbs" / "train.pbs", "pbs"),
+    ("lsf", EXAMPLES_ROOT / "lsf" / "train.lsf", "lsf"),
+    ("sge", EXAMPLES_ROOT / "sge" / "train.sge", "sge"),
     ("k8s_crd", EXAMPLES_ROOT / "k8s_crd" / "pytorchjob.yaml", "k8s_crd"),
     ("skypilot", EXAMPLES_ROOT / "skypilot" / "task.yaml", "skypilot"),
     ("ray", EXAMPLES_ROOT / "ray" / "cluster.yaml", "ray"),

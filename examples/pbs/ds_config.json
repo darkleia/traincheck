@@ -1,0 +1,17 @@
+{
+  "train_micro_batch_size_per_gpu": 4,
+  "gradient_accumulation_steps": 8,
+  "steps_per_print": 10,
+  "zero_optimization": {
+    "stage": 3,
+    "offload_optimizer": { "device": "cpu" },
+    "offload_param": { "device": "none" },
+    "overlap_comm": true,
+    "contiguous_gradients": true
+  },
+  "tensor_parallel_size": 2,
+  "pipeline_parallel_size": 4,
+  "bf16": { "enabled": true },
+  "gradient_clipping": 1.0,
+  "wall_clock_breakdown": false
+}

@@ -6,7 +6,10 @@ import yaml
 
 from traincheck.adapters.bare import adapt_bare
 from traincheck.adapters.k8s import adapt_k8s
+from traincheck.adapters.lsf import adapt_lsf
+from traincheck.adapters.pbs import adapt_pbs
 from traincheck.adapters.ray import adapt_ray
+from traincheck.adapters.sge import adapt_sge
 from traincheck.adapters.skypilot import adapt_skypilot
 from traincheck.adapters.slurm import adapt_slurm
 from traincheck.adapters.submitit import adapt_submitit
@@ -19,6 +22,9 @@ from traincheck.validator import JobSpec, parse_config
 # it needs neither - its script is fully self-contained.
 _BASE_DIR_ADAPTERS = {
     Stack.SLURM: adapt_slurm,
+    Stack.PBS: adapt_pbs,
+    Stack.LSF: adapt_lsf,
+    Stack.SGE: adapt_sge,
     Stack.K8S_CRD: adapt_k8s,
     Stack.SKYPILOT: adapt_skypilot,
     Stack.RAY: adapt_ray,

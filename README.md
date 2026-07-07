@@ -22,6 +22,7 @@ Anyone submitting distributed training jobs to a shared GPU cluster who's tired 
 ## supported stacks
 
 - Slurm (sbatch scripts)
+- PBS / Torque, LSF, SGE (same idea as Slurm — a directive block plus a shell body)
 - Kubernetes / Kubeflow (PyTorchJob, MPIJob, TFJob, Volcano Job, plain batch Job)
 - SkyPilot
 - Ray (cluster.yaml + job.py)
@@ -48,7 +49,7 @@ Exit code is 1 if there's a real violation, 0 otherwise — verification items d
 
 ## status
 
-Still early. Detection exists for PBS/LSF/SGE but there's no adapter for them yet, Accelerate configs aren't parsed, and a few Slurm GPU-request flag spellings (`--gres=`, `--gpus-per-task`, etc.) aren't handled yet either. Issues and PRs welcome.
+Still early. Accelerate configs aren't parsed yet. Issues and PRs welcome.
 
 ## development
 
