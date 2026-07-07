@@ -44,8 +44,18 @@ class JobSpec:
     # Launcher
     world_size: Field = field(default_factory=_unset)
     launcher_nnodes: Field = field(default_factory=_unset)
+    launcher_nnodes_min: Field = field(default_factory=_unset)
+    launcher_nnodes_max: Field = field(default_factory=_unset)
     launcher_nproc_per_node: Field = field(default_factory=_unset)
     launcher_kind: Field = field(default_factory=_unset)
+    launcher_rdzv_backend: Field = field(default_factory=_unset)
+    launcher_rdzv_endpoint: Field = field(default_factory=_unset)
+    launcher_rdzv_id: Field = field(default_factory=_unset)
+    launcher_node_rank: Field = field(default_factory=_unset)
+    launcher_master_addr: Field = field(default_factory=_unset)
+    launcher_master_port: Field = field(default_factory=_unset)
+    launcher_max_restarts: Field = field(default_factory=_unset)
+    launcher_standalone: Field = field(default_factory=_unset)
     # Framework / Software
     framework_name: Field = field(default_factory=_unset)
     framework_version: Field = field(default_factory=_unset)
@@ -111,8 +121,18 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         partition=_resolved(cluster.get("partition")),
         world_size=_resolved(None),
         launcher_nnodes=_resolved(None),
+        launcher_nnodes_min=_resolved(None),
+        launcher_nnodes_max=_resolved(None),
         launcher_nproc_per_node=_resolved(None),
         launcher_kind=_resolved(None),
+        launcher_rdzv_backend=_resolved(None),
+        launcher_rdzv_endpoint=_resolved(None),
+        launcher_rdzv_id=_resolved(None),
+        launcher_node_rank=_resolved(None),
+        launcher_master_addr=_resolved(None),
+        launcher_master_port=_resolved(None),
+        launcher_max_restarts=_resolved(None),
+        launcher_standalone=_resolved(None),
         framework_name=_resolved(framework.get("name")),
         framework_version=_resolved(parse_version(framework.get("version"))),
         nccl_version=_resolved(parse_version(nccl.get("version"))),

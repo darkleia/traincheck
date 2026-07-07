@@ -24,11 +24,39 @@ _SINGULARITY_RE = re.compile(r"singularity\s+(?:exec|run)\s+(?:-\S+(?:\s+\S+)?\s
 _DOCKER_RUN_RE = re.compile(r"docker\s+run\s+(?:-\S+(?:\s+\S+)?\s+)*(\S+)")
 _IMAGE_PATTERNS = (_CONTAINER_IMAGE_RE, _IMAGE_FLAG_RE, _SINGULARITY_RE, _DOCKER_RUN_RE)
 
-_NNODES_FLAGS = ("--nnodes",)
-_NPROC_FLAGS = ("--nproc-per-node", "--nproc_per_node")
-_RDZV_BACKEND_FLAGS = ("--rdzv-backend", "--rdzv_backend")
-_DEEPSPEED_FLAGS = ("--deepspeed",)
-_CONFIG_FLAGS = ("--config", "--config-name", "--config_name")
+# Every value-taking launcher flag we understand, mapped to one canonical
+# destination key. torchrun accepts both dash and underscore spellings for
+# most of these, so every accepted spelling is listed - the scanner below
+# is otherwise spelling-agnostic.
+_VALUE_FLAGS = {
+    "--nnodes": "nnodes",
+    "--nproc-per-node": "nproc_per_node",
+    "--nproc_per_node": "nproc_per_node",
+    "--rdzv-backend": "rdzv_backend",
+    "--rdzv_backend": "rdzv_backend",
+    "--rdzv-endpoint": "rdzv_endpoint",
+    "--rdzv_endpoint": "rdzv_endpoint",
+    "--rdzv-id": "rdzv_id",
+    "--rdzv_id": "rdzv_id",
+    "--node-rank": "node_rank",
+    "--node_rank": "node_rank",
+    "--master-addr": "master_addr",
+    "--master_addr": "master_addr",
+    "--master-port": "master_port",
+    "--master_port": "master_port",
+    "--max-restarts": "max_restarts",
+    "--max_restarts": "max_restarts",
+    "--deepspeed": "deepspeed",
+    "--config": "config",
+    "--config-name": "config",
+    "--config_name": "config",
+}
+# Boolean switches: presence alone is the signal, no value token follows.
+_SWITCH_FLAGS = {
+    "--standalone": "standalone",
+}
+
+_HOST_DEPENDENT_NPROC = {"gpu", "cpu", "xpu", "auto"}
 
 _BARE_OVERRIDE_RE = re.compile(r"^[A-Za-z_][\w.]*=[^=\s]+$")
 _VAR_REF_RE = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")
@@ -106,52 +134,70 @@ def _parse_launcher_line(
 
     tokens = _tokenize(launcher_line)
     kind = next((k for k in _LAUNCHER_KINDS if k in tokens), None)
+    raw, switches, config_overrides = _scan_tokens(tokens)
 
-    nnodes_raw: Optional[str] = None
-    nproc_per_node_raw: Optional[str] = None
-    rdzv_backend_raw: Optional[str] = None
-    framework_config: Optional[str] = None
-    config_path_raw: Optional[str] = None
+    def resolved(key: str) -> Optional[str]:
+        return _resolve_var(raw.get(key), env_vars)
+
+    nnodes_min, nnodes_max = _parse_nnodes(resolved("nnodes"))
+    nproc_per_node, nproc_host_dependent = _parse_nproc(resolved("nproc_per_node"))
+    max_restarts_raw = resolved("max_restarts")
+    standalone = "standalone" in switches
+    rdzv_endpoint = resolved("rdzv_endpoint")
+
+    launcher = {
+        "kind": kind,
+        # Convenience key for the common fixed-node-count case (min == max);
+        # None for an elastic range, where nnodes_min/nnodes_max are the
+        # only meaningful values.
+        "nnodes": nnodes_min if nnodes_min == nnodes_max else None,
+        "nnodes_min": nnodes_min,
+        "nnodes_max": nnodes_max,
+        "nproc_per_node": nproc_per_node,
+        "nproc_per_node_host_dependent": nproc_host_dependent,
+        "rdzv_backend": resolved("rdzv_backend"),
+        "rdzv_endpoint": rdzv_endpoint,
+        "rdzv_id": resolved("rdzv_id"),
+        "node_rank": _as_int(resolved("node_rank")),
+        "master_addr": resolved("master_addr"),
+        "master_port": _as_int(resolved("master_port")),
+        "max_restarts": _as_int(max_restarts_raw)
+        if max_restarts_raw is not None
+        else (0 if kind == "torchrun" else None),
+        "max_restarts_is_default": max_restarts_raw is None and kind == "torchrun",
+        "standalone": standalone,
+        "standalone_conflict": standalone and rdzv_endpoint is not None,
+    }
+    framework_config = raw.get("deepspeed")
+    config_path = resolved("config")
+    return launcher, framework_config, config_path, config_overrides
+
+
+def _scan_tokens(tokens: list[str]) -> tuple[dict[str, str], set[str], list[str]]:
+    raw: dict[str, str] = {}
+    switches: set[str] = set()
     config_overrides: list[str] = []
 
     i = 0
     while i < len(tokens):
         token = tokens[i]
 
-        if token.startswith("--") and "=" in token:
-            flag, value = token.split("=", 1)
-            if flag in _NNODES_FLAGS:
-                nnodes_raw = value
-            elif flag in _NPROC_FLAGS:
-                nproc_per_node_raw = value
-            elif flag in _RDZV_BACKEND_FLAGS:
-                rdzv_backend_raw = value
-            elif flag in _DEEPSPEED_FLAGS:
-                framework_config = value
-            elif flag in _CONFIG_FLAGS:
-                config_path_raw = value
+        if token in _SWITCH_FLAGS:
+            switches.add(_SWITCH_FLAGS[token])
             i += 1
             continue
 
-        has_next = i + 1 < len(tokens)
-        if token in _NNODES_FLAGS and has_next:
-            nnodes_raw = tokens[i + 1]
-            i += 2
+        if token.startswith("--") and "=" in token:
+            flag, value = token.split("=", 1)
+            key = _VALUE_FLAGS.get(flag)
+            if key:
+                raw[key] = value
+            i += 1
             continue
-        if token in _NPROC_FLAGS and has_next:
-            nproc_per_node_raw = tokens[i + 1]
-            i += 2
-            continue
-        if token in _RDZV_BACKEND_FLAGS and has_next:
-            rdzv_backend_raw = tokens[i + 1]
-            i += 2
-            continue
-        if token in _DEEPSPEED_FLAGS and has_next:
-            framework_config = tokens[i + 1]
-            i += 2
-            continue
-        if token in _CONFIG_FLAGS and has_next:
-            config_path_raw = tokens[i + 1]
+
+        key = _VALUE_FLAGS.get(token)
+        if key and i + 1 < len(tokens):
+            raw[key] = tokens[i + 1]
             i += 2
             continue
 
@@ -160,16 +206,25 @@ def _parse_launcher_line(
 
         i += 1
 
-    nnodes_value = _resolve_var(nnodes_raw, env_vars)
-    nproc_per_node_value = _resolve_var(nproc_per_node_raw, env_vars)
-    launcher = {
-        "kind": kind,
-        "nnodes": _as_int(nnodes_value) if nnodes_value is not None else None,
-        "nproc_per_node": _as_int(nproc_per_node_value) if nproc_per_node_value is not None else None,
-        "rdzv_backend": _resolve_var(rdzv_backend_raw, env_vars),
-    }
-    config_path = _resolve_var(config_path_raw, env_vars)
-    return launcher, framework_config, config_path, config_overrides
+    return raw, switches, config_overrides
+
+
+def _parse_nnodes(value: Optional[str]) -> tuple[Optional[int], Optional[int]]:
+    if value is None:
+        return None, None
+    if ":" in value:
+        lo, _, hi = value.partition(":")
+        return _as_int(lo), _as_int(hi)
+    n = _as_int(value)
+    return n, n
+
+
+def _parse_nproc(value: Optional[str]) -> tuple[Optional[int], bool]:
+    if value is None:
+        return None, False
+    if value.lower() in _HOST_DEPENDENT_NPROC:
+        return None, True
+    return _as_int(value), False
 
 
 def _tokenize(line: str) -> list[str]:
@@ -198,7 +253,9 @@ def _strip_quotes(value: str) -> str:
     return value
 
 
-def _as_int(value: str) -> Optional[int]:
+def _as_int(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
     try:
         return int(value)
     except ValueError:
@@ -208,11 +265,14 @@ def _as_int(value: str) -> Optional[int]:
 def _resolve_var(value: Optional[str], env_vars: dict[str, str]) -> Optional[str]:
     """Resolve a `$VAR` reference against exports seen earlier in the same
     script. Returns None (rather than the raw `$VAR` text) when the
-    variable comes from outside the script, since we can't know its value.
+    variable comes from outside the script, since we can't know its value -
+    and also when `$` appears inside a larger composite (e.g. a
+    "$HOST:$PORT" endpoint), since substituting just one half would produce
+    a value that looks real but isn't.
     """
     if value is None:
         return None
     match = _VAR_REF_RE.match(value)
-    if not match:
-        return value
-    return env_vars.get(match.group(1))
+    if match:
+        return env_vars.get(match.group(1))
+    return None if "$" in value else value

@@ -16,7 +16,7 @@ from typing import Any, Optional
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
-from traincheck.ir import Field, resolved_or_absent
+from traincheck.ir import Field, build_launcher_fields, resolved_or_absent
 from traincheck.utils import load_yaml_file, parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
@@ -59,8 +59,15 @@ def adapt_skypilot(path: str, base_dir: str) -> JobSpec:
         spec.framework_version = image_fields["framework"]
 
     shell = extract_shell(f"{setup_text}\n{run_text}", base_dir=base_dir)
-    launcher = shell["launcher"] or {}
-    spec.launcher_nproc_per_node = resolved_or_absent(launcher.get("nproc_per_node"), "shell")
+    launcher_fields = build_launcher_fields(shell["launcher"], "shell")
+    # num_nodes + accelerators (above) is the more authoritative source for
+    # SkyPilot's own world_size - only fall back to the shell-derived one
+    # (e.g. an elastic --nnodes range) when that didn't resolve it.
+    shell_world_size = launcher_fields.pop("world_size")
+    if spec.world_size.status != "resolved":
+        spec.world_size = shell_world_size
+    for name, launcher_field in launcher_fields.items():
+        setattr(spec, name, launcher_field)
 
     _fill_from_config(spec, shell, base_dir)
 

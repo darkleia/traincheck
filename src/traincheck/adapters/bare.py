@@ -19,7 +19,7 @@ from traincheck.adapters.deepspeed import adapt_deepspeed
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
-from traincheck.ir import Field, resolved_or_absent
+from traincheck.ir import Field, build_launcher_fields, resolved_or_absent
 from traincheck.utils import parse_gdr_level, safe_int
 from traincheck.validator import JobSpec
 
@@ -50,14 +50,8 @@ def adapt_bare(path: str, base_dir: str) -> JobSpec:
     shell = extract_shell(text, base_dir=base_dir)
     source = "shell"
 
-    launcher = shell["launcher"] or {}
-    nnodes = launcher.get("nnodes")
-    nproc_per_node = launcher.get("nproc_per_node")
-    spec.launcher_kind = resolved_or_absent(launcher.get("kind"), source)
-    spec.launcher_nnodes = resolved_or_absent(nnodes, source)
-    spec.launcher_nproc_per_node = resolved_or_absent(nproc_per_node, source)
-    world_size = nnodes * nproc_per_node if nnodes is not None and nproc_per_node is not None else None
-    spec.world_size = resolved_or_absent(world_size, source)
+    for name, launcher_field in build_launcher_fields(shell["launcher"], source).items():
+        setattr(spec, name, launcher_field)
 
     env_vars = shell["env_vars"]
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), source)
