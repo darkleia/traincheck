@@ -62,6 +62,14 @@ class JobSpec:
     nccl_version: Field = field(default_factory=_unset)
     nccl_algo: Field = field(default_factory=_unset)
     cuda_version: Field = field(default_factory=_unset)
+    # Accelerate launch config - compute_environment/distributed_type
+    # describe how `accelerate launch` itself is set up; the actual
+    # world_size/nnodes/node_rank/master_addr/master_port these imply are
+    # mapped onto the standard Launcher fields above instead of duplicated.
+    compute_environment: Field = field(default_factory=_unset)
+    distributed_type: Field = field(default_factory=_unset)
+    mixed_precision: Field = field(default_factory=_unset)
+    gpu_ids: Field = field(default_factory=_unset)
     # Environment
     nccl_ib_disable: Field = field(default_factory=_unset)
     nccl_net_gdr_level: Field = field(default_factory=_unset)
@@ -75,6 +83,10 @@ class JobSpec:
     pipeline_parallel: Field = field(default_factory=_unset)
     data_parallel: Field = field(default_factory=_unset)
     sharding: Field = field(default_factory=_unset)
+    # {"optimizer": device_or_None, "param": device_or_None} - DeepSpeed
+    # ZeRO-Offload, from either a real ds_config.json or Accelerate's own
+    # flattened deepspeed_config block.
+    zero_offload: Field = field(default_factory=_unset)
     # Megatron-LM's other model-parallel axes - distinct from tensor/
     # pipeline above, which DeepSpeed configs also set.
     sequence_parallel: Field = field(default_factory=_unset)
@@ -155,6 +167,10 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         nccl_version=_resolved(parse_version(nccl.get("version"))),
         nccl_algo=_resolved(nccl.get("algo")),
         cuda_version=_resolved(None),
+        compute_environment=_resolved(None),
+        distributed_type=_resolved(None),
+        mixed_precision=_resolved(None),
+        gpu_ids=_resolved(None),
         nccl_ib_disable=_resolved(env.get("NCCL_IB_DISABLE")),
         nccl_net_gdr_level=_resolved(env.get("NCCL_NET_GDR_LEVEL")),
         comm_env=build_comm_env([("native", env)]),
@@ -162,6 +178,7 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         pipeline_parallel=_resolved(parallelism.get("pipeline_parallel")),
         data_parallel=_resolved(parallelism.get("data_parallel")),
         sharding=_resolved(None),
+        zero_offload=_resolved(None),
         sequence_parallel=_resolved(None),
         expert_parallel=_resolved(None),
         context_parallel=_resolved(None),

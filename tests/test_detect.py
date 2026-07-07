@@ -17,6 +17,7 @@ ENTRYPOINT_BY_STACK = {
     Stack.K8S_CRD: EXAMPLES_ROOT / "k8s_crd" / "pytorchjob.yaml",
     Stack.RAY: EXAMPLES_ROOT / "ray" / "cluster.yaml",
     Stack.SKYPILOT: EXAMPLES_ROOT / "skypilot" / "task.yaml",
+    Stack.ACCELERATE: EXAMPLES_ROOT / "accelerate" / "default_config.yaml",
     Stack.BARE: EXAMPLES_ROOT / "bare" / "run.sh",
     Stack.TORCHX: EXAMPLES_ROOT / "torchx" / "component.py",
     Stack.SUBMITIT: EXAMPLES_ROOT / "submitit" / "job.py",

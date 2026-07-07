@@ -74,6 +74,12 @@ _VALUE_FLAGS = {
     "--expert_model_parallel_size": "expert_model_parallel_size",
     "--context-parallel-size": "context_parallel_size",
     "--context_parallel_size": "context_parallel_size",
+    # accelerate launch's own flags - these override its --config_file
+    # (handled by the adapters that call parse_launcher_tokens), not read
+    # from the file itself.
+    "--num_processes": "num_processes",
+    "--num_machines": "num_machines",
+    "--mixed_precision": "mixed_precision",
 }
 # Boolean switches: presence alone is the signal, no value token follows.
 _SWITCH_FLAGS = {
@@ -240,6 +246,10 @@ def parse_launcher_tokens(
         "expert_model_parallel_size": _as_int(resolved("expert_model_parallel_size")),
         "context_parallel_size": _as_int(resolved("context_parallel_size")),
         "sequence_parallel": "sequence_parallel" in switches,
+        # accelerate launch's own flags - override its --config_file.
+        "num_processes": _as_int(resolved("num_processes")),
+        "num_machines": _as_int(resolved("num_machines")),
+        "mixed_precision": resolved("mixed_precision"),
     }
     framework_config = raw.get("deepspeed")
     config_path = resolved("config")

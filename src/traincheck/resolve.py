@@ -4,6 +4,7 @@ import os
 
 import yaml
 
+from traincheck.adapters.accelerate import adapt_accelerate
 from traincheck.adapters.bare import adapt_bare
 from traincheck.adapters.k8s import adapt_k8s
 from traincheck.adapters.lsf import adapt_lsf
@@ -27,6 +28,7 @@ _BASE_DIR_ADAPTERS = {
     Stack.SGE: adapt_sge,
     Stack.K8S_CRD: adapt_k8s,
     Stack.SKYPILOT: adapt_skypilot,
+    Stack.ACCELERATE: adapt_accelerate,
     Stack.RAY: adapt_ray,
     Stack.BARE: adapt_bare,
     Stack.TORCHX: adapt_torchx,

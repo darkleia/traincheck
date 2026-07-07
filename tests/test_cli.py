@@ -25,6 +25,7 @@ ALL_STACK_ENTRYPOINTS = [
     EXAMPLES_ROOT / "k8s_crd" / "pytorchjob.yaml",
     EXAMPLES_ROOT / "trainjob" / "trainjob.yaml",
     EXAMPLES_ROOT / "skypilot" / "task.yaml",
+    EXAMPLES_ROOT / "accelerate" / "default_config.yaml",
     EXAMPLES_ROOT / "ray" / "cluster.yaml",
     EXAMPLES_ROOT / "bare" / "run.sh",
     EXAMPLES_ROOT / "torchx" / "component.py",

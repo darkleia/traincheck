@@ -14,7 +14,7 @@ import os
 from typing import Optional
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
-from traincheck.extractors.accelerate import fill_fsdp_sharding
+from traincheck.extractors.accelerate import apply_accelerate_launch
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
 from traincheck.ir import Field, build_comm_env, build_launcher_fields, resolved_or_absent
@@ -79,6 +79,8 @@ def apply_shell_body(spec: JobSpec, body: str, base_dir: str, extra_env: Optiona
             # just because the DeepSpeed config doesn't also set it.
             if ds_fields["sharding"].status == "resolved":
                 spec.sharding = ds_fields["sharding"]
+            if ds_fields["zero_offload"].status == "resolved":
+                spec.zero_offload = ds_fields["zero_offload"]
             if ds_fields["tensor_parallel"].status == "resolved":
                 spec.tensor_parallel = ds_fields["tensor_parallel"]
             if ds_fields["pipeline_parallel"].status == "resolved":
@@ -87,7 +89,7 @@ def apply_shell_body(spec: JobSpec, body: str, base_dir: str, extra_env: Optiona
             spec.train_micro_batch_size_per_gpu = ds_fields["train_micro_batch_size_per_gpu"]
             spec.gradient_accumulation_steps = ds_fields["gradient_accumulation_steps"]
 
-    fill_fsdp_sharding(spec, shell["launcher"], base_dir)
+    apply_accelerate_launch(spec, shell["launcher"], base_dir)
     derive_data_parallel(spec)
 
     for name in HOST_ENV_FIELDS:

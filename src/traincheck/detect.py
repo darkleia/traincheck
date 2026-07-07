@@ -22,6 +22,7 @@ class Stack(Enum):
     K8S_CRD = "k8s_crd"
     RAY = "ray"
     SKYPILOT = "skypilot"
+    ACCELERATE = "accelerate"
     BARE = "bare"
     TORCHX = "torchx"
     SUBMITIT = "submitit"
@@ -85,6 +86,8 @@ def detect_stack(path: Union[str, Path]) -> Stack:
             return Stack.RAY
         if _is_skypilot(doc):
             return Stack.SKYPILOT
+        if _is_accelerate_config(doc):
+            return Stack.ACCELERATE
 
     if _looks_like_shell(p, text) and _SHELL_LAUNCHER_RE.search(text):
         return Stack.BARE
@@ -120,6 +123,10 @@ def _is_ray(doc: dict) -> bool:
 
 def _is_skypilot(doc: dict) -> bool:
     return "resources" in doc and "run" in doc
+
+
+def _is_accelerate_config(doc: dict) -> bool:
+    return "compute_environment" in doc and "distributed_type" in doc
 
 
 def _looks_like_shell(p: Path, text: str) -> bool:

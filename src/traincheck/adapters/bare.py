@@ -17,7 +17,7 @@ import os
 
 from traincheck.adapters.deepspeed import adapt_deepspeed
 from traincheck.adapters.hpc_shell import derive_data_parallel
-from traincheck.extractors.accelerate import fill_fsdp_sharding
+from traincheck.extractors.accelerate import apply_accelerate_launch
 from traincheck.extractors.hydra import extract_hydra
 from traincheck.extractors.image import extract_image
 from traincheck.extractors.shell import extract_shell
@@ -75,7 +75,7 @@ def adapt_bare(path: str, base_dir: str) -> JobSpec:
 
     _fill_deepspeed(spec, shell, base_dir)
     _fill_hydra(spec, shell, base_dir)
-    fill_fsdp_sharding(spec, shell["launcher"], base_dir)
+    apply_accelerate_launch(spec, shell["launcher"], base_dir)
     derive_data_parallel(spec)
 
     for name in _HOST_ENV_FIELDS:
@@ -102,6 +102,8 @@ def _fill_deepspeed(spec: JobSpec, shell: dict, base_dir: str) -> None:
     # because the DeepSpeed config doesn't also set it.
     if ds_fields["sharding"].status == "resolved":
         spec.sharding = ds_fields["sharding"]
+    if ds_fields["zero_offload"].status == "resolved":
+        spec.zero_offload = ds_fields["zero_offload"]
     if ds_fields["tensor_parallel"].status == "resolved":
         spec.tensor_parallel = ds_fields["tensor_parallel"]
     if ds_fields["pipeline_parallel"].status == "resolved":

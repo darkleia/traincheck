@@ -25,13 +25,14 @@ Anyone submitting distributed training jobs to a shared GPU cluster who's tired 
 - PBS / Torque, LSF, SGE (same idea as Slurm — a directive block plus a shell body)
 - Kubernetes / Kubeflow (PyTorchJob, MPIJob, TFJob, Volcano Job, plain batch Job, and the newer TrainJob from Kubeflow Trainer v2)
 - SkyPilot
+- Accelerate (`default_config.yaml`, standalone or via `accelerate launch`)
 - Ray (cluster.yaml + job.py)
 - torchx
 - submitit
 - bare metal (no scheduler, just a launch script)
 - traincheck's own native YAML schema, if you'd rather write config directly
 
-DeepSpeed configs and Hydra-composed configs get pulled in automatically wherever your launch command references them, whatever the underlying scheduler.
+DeepSpeed configs and Hydra-composed configs get pulled in automatically wherever your launch command references them, whatever the underlying scheduler — including a DeepSpeed or FSDP block embedded right in an Accelerate config.
 
 ## usage
 
@@ -49,7 +50,7 @@ Exit code is 1 if there's a real violation, 0 otherwise — verification items d
 
 ## status
 
-Still early. Accelerate configs are only read for their FSDP sharding strategy so far, not the rest (num_processes, DeepSpeed-via-Accelerate, etc). Issues and PRs welcome.
+Still early. Issues and PRs welcome.
 
 ## development
 

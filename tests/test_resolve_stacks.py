@@ -37,6 +37,7 @@ STACK_CASES = [
     ("k8s_crd", EXAMPLES_ROOT / "k8s_crd" / "pytorchjob.yaml", "k8s_crd"),
     ("trainjob", EXAMPLES_ROOT / "trainjob" / "trainjob.yaml", "k8s_crd"),
     ("skypilot", EXAMPLES_ROOT / "skypilot" / "task.yaml", "skypilot"),
+    ("accelerate", EXAMPLES_ROOT / "accelerate" / "default_config.yaml", "accelerate"),
     ("ray", EXAMPLES_ROOT / "ray" / "cluster.yaml", "ray"),
     ("bare", EXAMPLES_ROOT / "bare" / "run.sh", "bare"),
     ("torchx", EXAMPLES_ROOT / "torchx" / "component.py", "slurm"),
