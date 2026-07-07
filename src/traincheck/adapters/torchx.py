@@ -69,8 +69,7 @@ def adapt_torchx(path: str, base_dir: str) -> JobSpec:
     if scheduler is None:
         _mark_stack_unknown(
             spec,
-            "no `-s <scheduler>` on the torchx run line and no [cli:run] "
-            "scheduler in .torchxconfig",
+            "no `-s <scheduler>` on the torchx run line and no [cli:run] scheduler in .torchxconfig",
         )
         return spec
 

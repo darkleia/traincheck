@@ -34,8 +34,7 @@ _DYNAMIC_RUNTIME_ENV_REASON = (
     "so pip/env_vars can't be read without executing the code"
 )
 _DYNAMIC_NUM_GPUS_REASON = (
-    "num_gpus on @ray.remote is a dynamic expression, not a literal, "
-    "so it can't be read without executing the code"
+    "num_gpus on @ray.remote is a dynamic expression, not a literal, so it can't be read without executing the code"
 )
 
 
@@ -115,9 +114,7 @@ def _fill_from_job_py(spec: JobSpec, text: str, source: str) -> None:
     pip_field, env_vars_field, num_gpus_field = _parse_job_py(text, job_source)
 
     if pip_field.status == "resolved":
-        spec.dependency_constraints = resolved_or_absent(
-            parse_pip_list(pip_field.value) or None, job_source
-        )
+        spec.dependency_constraints = resolved_or_absent(parse_pip_list(pip_field.value) or None, job_source)
     else:
         spec.dependency_constraints = pip_field
 
@@ -125,9 +122,7 @@ def _fill_from_job_py(spec: JobSpec, text: str, source: str) -> None:
         env_vars = env_vars_field.value or {}
         spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), job_source)
         spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), job_source)
-        spec.nccl_net_gdr_level = resolved_or_absent(
-            parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), job_source
-        )
+        spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), job_source)
     else:
         spec.nccl_algo = env_vars_field
         spec.nccl_ib_disable = env_vars_field
@@ -182,7 +177,7 @@ def _parse_job_py(text: str, source: str) -> tuple:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for decorator in node.decorator_list:
-            if not _is_ray_remote_call(decorator):
+            if not isinstance(decorator, ast.Call) or not _is_ray_remote_call(decorator):
                 continue
             num_gpus_node = _keyword_value_node(decorator, "num_gpus")
             if num_gpus_node is None:

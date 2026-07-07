@@ -13,6 +13,7 @@ def _unset() -> Field:
     """Default for a JobSpec leaf that no parser has populated yet."""
     return Field(value=None, status="absent")
 
+
 @dataclass
 class Meta:
     """Bookkeeping about a JobSpec as a whole - not itself a config value."""
@@ -22,6 +23,7 @@ class Meta:
     # spec was ultimately understood as, when that's a fact about the
     # adapter's own resolution rather than a JobSpec leaf.
     stack: Optional[Field] = None
+
 
 @dataclass
 class JobSpec:
@@ -83,9 +85,11 @@ class JobSpec:
 
     meta: Meta = field(default_factory=Meta)
 
+
 def _resolved(value: Any) -> Field:
     """Wrap a value the native parser read straight out of the config."""
     return Field(value=value, status="resolved", source="native", confidence=1.0)
+
 
 def parse_config(config: dict[str, Any]) -> JobSpec:
     """Parse a traincheck config dictionary into the flat context
@@ -136,6 +140,7 @@ def parse_config(config: dict[str, Any]) -> JobSpec:
         image_pin_status=_resolved(None),
         dependency_constraints=_resolved(None),
     )
+
 
 class Validator:
     def __init__(self):

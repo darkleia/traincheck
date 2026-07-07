@@ -10,6 +10,7 @@ import re
 from typing import Any, Optional
 
 import bashlex
+import bashlex.errors
 
 _MODULE_LOAD_RE = re.compile(r"^\s*module\s+load\s+(.+)$")
 _EXPORT_RE = re.compile(r"^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
@@ -72,9 +73,7 @@ def extract_shell(script_text: str, base_dir: str) -> dict[str, Any]:
         if launcher_line is None and any(kind in line for kind in _LAUNCHER_KINDS):
             launcher_line = line
 
-    launcher, framework_config, config_path, config_overrides = _parse_launcher_line(
-        launcher_line, env_vars
-    )
+    launcher, framework_config, config_path, config_overrides = _parse_launcher_line(launcher_line, env_vars)
 
     return {
         "module_loads": module_loads,

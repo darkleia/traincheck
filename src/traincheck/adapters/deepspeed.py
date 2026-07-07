@@ -37,12 +37,8 @@ def adapt_deepspeed(path: str) -> dict[str, Field]:
                 "counts."
             ),
         ),
-        "train_micro_batch_size_per_gpu": _field_for(
-            config, "train_micro_batch_size_per_gpu", source
-        ),
-        "gradient_accumulation_steps": _field_for(
-            config, "gradient_accumulation_steps", source
-        ),
+        "train_micro_batch_size_per_gpu": _field_for(config, "train_micro_batch_size_per_gpu", source),
+        "gradient_accumulation_steps": _field_for(config, "gradient_accumulation_steps", source),
     }
 
 

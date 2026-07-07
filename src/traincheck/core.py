@@ -13,6 +13,7 @@ class Severity(Enum):
     WARN = "warn"
     INFO = "info"
 
+
 @dataclass
 class Rule:
     id: str
@@ -30,16 +31,19 @@ class Rule:
         except Exception:
             return False
 
+
 @dataclass
 class Violation:
     rule: Rule
     context: dict[str, Any]
+
 
 @dataclass
 class NeedsVerification:
     rule: Rule
     field_name: str
     reason: str
+
 
 @dataclass
 class Result:
@@ -58,12 +62,14 @@ class Result:
     def passed(self) -> bool:
         return len(self.errors) == 0
 
+
 def _condition_names(condition: str) -> set[str]:
     """Names a rule condition reads, e.g. {"nodes", "gpu_type"} for
     "nodes > 32 and gpu_type == 'A100'".
     """
     tree = ast.parse(condition, mode="eval")
     return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+
 
 class RuleEngine:
     def __init__(self):
@@ -82,10 +88,7 @@ class RuleEngine:
         """
         violations = []
         needs_verification = []
-        flat = {
-            name: value.value if isinstance(value, Field) else value
-            for name, value in context.items()
-        }
+        flat = {name: value.value if isinstance(value, Field) else value for name, value in context.items()}
 
         for rule in self._rules:
             try:
@@ -103,9 +106,7 @@ class RuleEngine:
             )
             if unresolved is not None:
                 name, unresolved_field = unresolved
-                needs_verification.append(
-                    NeedsVerification(rule=rule, field_name=name, reason=unresolved_field.reason)
-                )
+                needs_verification.append(NeedsVerification(rule=rule, field_name=name, reason=unresolved_field.reason))
                 continue
 
             if rule.evaluate(flat):

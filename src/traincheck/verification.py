@@ -52,9 +52,7 @@ def collect_needs_verification(spec: JobSpec, result: Result) -> list:
         for nv in result.needs_verification
     ]
 
-    names_by_id = {
-        id(getattr(spec, f.name)): f.name for f in dataclasses.fields(spec) if f.name != "meta"
-    }
+    names_by_id = {id(getattr(spec, f.name)): f.name for f in dataclasses.fields(spec) if f.name != "meta"}
     if spec.meta.stack is not None:
         names_by_id[id(spec.meta.stack)] = "stack"
 

@@ -58,10 +58,7 @@ def test_either_entrypoint_pulls_in_its_sibling():
 def test_dynamic_runtime_env_is_unknown_not_absent(tmp_path):
     dynamic_job = tmp_path / "job.py"
     dynamic_job.write_text(
-        "import ray\n"
-        "def build_env():\n"
-        "    return {'pip': ['torch']}\n"
-        "ray.init(runtime_env=build_env())\n"
+        "import ray\ndef build_env():\n    return {'pip': ['torch']}\nray.init(runtime_env=build_env())\n"
     )
 
     spec = adapt_ray(str(dynamic_job), base_dir=str(tmp_path))

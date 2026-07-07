@@ -116,9 +116,7 @@ def test_cli_check_reports_a_clean_error_for_an_unsupported_stack(tmp_path):
 
 
 def test_cli_check_reports_a_clean_error_for_a_scheduler_without_an_adapter():
-    result = runner.invoke(
-        app, ["check", str(EXAMPLES_ROOT / "lsf" / "train.lsf")]
-    )
+    result = runner.invoke(app, ["check", str(EXAMPLES_ROOT / "lsf" / "train.lsf")])
 
     assert result.exit_code == 2
     assert "doesn't support this stack yet" in result.output
@@ -163,9 +161,7 @@ def test_cli_check_probe_host_json_includes_host_facts():
         return _fake_completed("", returncode=1)
 
     with patch("traincheck.hostprobe.subprocess.run", side_effect=fake_run):
-        result = runner.invoke(
-            app, ["check", str(EXAMPLES_DIR / "train.sbatch"), "--probe-host", "--json"]
-        )
+        result = runner.invoke(app, ["check", str(EXAMPLES_DIR / "train.sbatch"), "--probe-host", "--json"])
 
     payload = json.loads(result.stdout)
     assert payload["host_facts"]["driver_version"] == {"status": "resolved", "value": "535.129.03"}

@@ -7,10 +7,7 @@ BUILTIN_RULES: list[Rule] = [
         id="NCCL-RING-001",
         severity=Severity.ERROR,
         condition=(
-            "nccl_algo == 'Ring' "
-            "and nodes > 32 "
-            "and gpu_type in ('A100', 'A100-SXM4-80GB') "
-            "and nccl_version < (2, 21)"
+            "nccl_algo == 'Ring' and nodes > 32 and gpu_type in ('A100', 'A100-SXM4-80GB') and nccl_version < (2, 21)"
         ),
         message=(
             "NCCL Ring algorithm on A100 clusters with >32 nodes has a known "
@@ -21,10 +18,7 @@ BUILTIN_RULES: list[Rule] = [
     Rule(
         id="NCCL-IB-001",
         severity=Severity.ERROR,
-        condition=(
-            "nccl_ib_disable == 1 "
-            "and interconnect == 'InfiniBand'"
-        ),
+        condition=("nccl_ib_disable == 1 and interconnect == 'InfiniBand'"),
         message=(
             "InfiniBand is disabled via NCCL_IB_DISABLE=1 but the cluster "
             "interconnect is InfiniBand. This will force communication over "
@@ -64,10 +58,7 @@ BUILTIN_RULES: list[Rule] = [
             "data_parallel must equal the total number of GPUs "
             "(nodes * gpus_per_node)."
         ),
-        fix_suggestion=(
-            "Adjust parallelism settings so TP * PP * DP = "
-            "nodes * gpus_per_node."
-        ),
+        fix_suggestion=("Adjust parallelism settings so TP * PP * DP = nodes * gpus_per_node."),
     ),
     Rule(
         id="MEMORY-001",
@@ -79,14 +70,8 @@ BUILTIN_RULES: list[Rule] = [
             "and model_size_billion_params > 30 "
             "and tensor_parallel == 1"
         ),
-        message=(
-            "Model with >30B parameters may not fit on GPUs with <80GB memory "
-            "without tensor parallelism."
-        ),
-        fix_suggestion=(
-            "Enable tensor parallelism (e.g., tensor_parallel=2) "
-            "or use activation checkpointing."
-        ),
+        message=("Model with >30B parameters may not fit on GPUs with <80GB memory without tensor parallelism."),
+        fix_suggestion=("Enable tensor parallelism (e.g., tensor_parallel=2) or use activation checkpointing."),
     ),
     Rule(
         id="DATALOADER-001",
@@ -97,31 +82,18 @@ BUILTIN_RULES: list[Rule] = [
             "and gpus_per_node is not None "
             "and gpus_per_node >= 8"
         ),
-        message=(
-            "DataLoader workers may be insufficient for 8-GPU nodes, "
-            "causing GPU starvation during data loading."
-        ),
-        fix_suggestion=(
-            "Increase DataLoader workers to at least 4 per GPU, "
-            "or enable prefetch_factor."
-        ),
+        message=("DataLoader workers may be insufficient for 8-GPU nodes, causing GPU starvation during data loading."),
+        fix_suggestion=("Increase DataLoader workers to at least 4 per GPU, or enable prefetch_factor."),
     ),
     Rule(
         id="CHECKPOINT-001",
         severity=Severity.INFO,
         condition=(
-            "checkpoint_frequency is not None "
-            "and checkpoint_frequency > 1000 "
-            "and nodes is not None "
-            "and nodes > 32"
+            "checkpoint_frequency is not None and checkpoint_frequency > 1000 and nodes is not None and nodes > 32"
         ),
         message=(
-            "Checkpoint frequency is low for a large-scale run. "
-            "A failure at step 999 would lose significant progress."
+            "Checkpoint frequency is low for a large-scale run. A failure at step 999 would lose significant progress."
         ),
-        fix_suggestion=(
-            "Consider reducing checkpoint frequency or enabling "
-            "async checkpointing."
-        ),
+        fix_suggestion=("Consider reducing checkpoint frequency or enabling async checkpointing."),
     ),
 ]

@@ -39,9 +39,7 @@ def check(
         dir_okay=False,
         help="Path to a training job config: native YAML, an sbatch script, or another supported launcher file.",
     ),
-    json_output: bool = typer.Option(
-        False, "--json", "-j", help="Print results as JSON instead of a table."
-    ),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Print results as JSON instead of a table."),
     probe_host: bool = typer.Option(
         False,
         "--probe-host",
@@ -92,9 +90,7 @@ def _print_table(
         for violation in result.violations:
             rule = violation.rule
             icon, color = ICONS[rule.severity], COLORS[rule.severity]
-            table.add_row(
-                icon, f"[{color}][{rule.severity.value.upper()}] {rule.id}[/{color}]: {rule.message}"
-            )
+            table.add_row(icon, f"[{color}][{rule.severity.value.upper()}] {rule.id}[/{color}]: {rule.message}")
             if rule.fix_suggestion:
                 table.add_row("", f"[dim]Fix: {rule.fix_suggestion}[/dim]")
         console.print(table)

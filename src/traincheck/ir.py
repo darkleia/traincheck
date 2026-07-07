@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 FieldStatus = Literal["resolved", "absent", "unknown"]
 
+
 @dataclass
 class Field:
     value: Any
@@ -21,6 +22,7 @@ class Field:
     def __post_init__(self) -> None:
         if self.status == "unknown" and not self.reason:
             raise ValueError("Field(status='unknown') requires a non-empty reason")
+
 
 def resolved_or_absent(value: Any, source: str = "", confidence: float = 1.0) -> Field:
     """Wrap a value a parser looked for: absent if it wasn't there, resolved

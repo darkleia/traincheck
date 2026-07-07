@@ -9,14 +9,15 @@ nvidia-nccl-cu*/nvidia-cuda* wheel families, deepspeed, transformers, apex.
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Optional
 
 import yaml
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ModuleNotFoundError:  # Python < 3.11
+else:
     import tomli as tomllib
 
 _TARGET_FILENAMES = {

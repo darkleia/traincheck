@@ -13,9 +13,7 @@ def test_gdr_level_named_form_resolves_not_lost_to_int_cast(tmp_path):
     dropped to "absent" by an int() cast that only handled the numeric form.
     """
     script = tmp_path / "run.sh"
-    script.write_text(
-        "#!/bin/bash\nexport NCCL_NET_GDR_LEVEL=PXB\ntorchrun --nnodes=1 --nproc-per-node=8 train.py\n"
-    )
+    script.write_text("#!/bin/bash\nexport NCCL_NET_GDR_LEVEL=PXB\ntorchrun --nnodes=1 --nproc-per-node=8 train.py\n")
 
     spec = adapt_bare(str(script), base_dir=str(tmp_path))
 

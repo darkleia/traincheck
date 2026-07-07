@@ -17,6 +17,7 @@ def _adapt():
 def test_scheduler_resolves_to_slurm_from_run_line():
     spec = _adapt()
 
+    assert spec.meta.stack is not None
     assert spec.meta.stack.status == "resolved"
     assert spec.meta.stack.value == "slurm"
 
@@ -64,13 +65,12 @@ def test_deepspeed_config_still_merges_through_the_delegate():
 
 
 def test_scheduler_falls_back_to_torchxconfig_cli_run_section(tmp_path):
-    (tmp_path / "run.sh").write_text(
-        "#!/bin/bash\ntorchx run dist.ddp -j 8x8 --script train.py\n"
-    )
+    (tmp_path / "run.sh").write_text("#!/bin/bash\ntorchx run dist.ddp -j 8x8 --script train.py\n")
     (tmp_path / ".torchxconfig").write_text("[cli:run]\nscheduler = slurm\n")
 
     spec = adapt_torchx(str(tmp_path / "run.sh"), base_dir=str(tmp_path))
 
+    assert spec.meta.stack is not None
     assert spec.meta.stack.status == "resolved"
     assert spec.meta.stack.value == "slurm"
 
@@ -80,6 +80,7 @@ def test_no_scheduler_found_marks_meta_stack_unknown(tmp_path):
 
     spec = adapt_torchx(str(tmp_path / "run.sh"), base_dir=str(tmp_path))
 
+    assert spec.meta.stack is not None
     assert spec.meta.stack.status == "unknown"
     assert spec.meta.stack.reason
     assert spec.meta.stack in spec.meta.unresolved
@@ -98,6 +99,7 @@ def test_unresolved_scheduler_surfaces_with_a_meaningful_label(tmp_path):
         engine.register(rule)
     result = engine.check(vars(spec))
 
+    assert spec.meta.stack is not None
     items = collect_needs_verification(spec, result)
     stack_items = [item for item in items if item.reason == spec.meta.stack.reason]
 

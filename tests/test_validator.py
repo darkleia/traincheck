@@ -46,9 +46,7 @@ def test_unknown_field_routes_to_needs_verification_not_a_violation():
         gpu_type=Field("A100", status="resolved", source="test"),
         interconnect=Field("InfiniBand", status="resolved", source="test"),
         nccl_algo=Field("Ring", status="resolved", source="test"),
-        nccl_version=Field(
-            None, status="unknown", reason="NCCL_VERSION not readable from container image"
-        ),
+        nccl_version=Field(None, status="unknown", reason="NCCL_VERSION not readable from container image"),
         nccl_ib_disable=Field(0, status="resolved", source="test"),
         tensor_parallel=Field(2, status="resolved", source="test"),
         pipeline_parallel=Field(4, status="resolved", source="test"),

@@ -53,16 +53,12 @@ def adapt_slurm(path: str, base_dir: str) -> JobSpec:
 
     module_loads = shell["module_loads"]
     spec.cuda_version = resolved_or_absent(_module_version(module_loads, "cuda"), "shell")
-    spec.nccl_version = resolved_or_absent(
-        parse_version(_module_version(module_loads, "nccl")), "shell"
-    )
+    spec.nccl_version = resolved_or_absent(parse_version(_module_version(module_loads, "nccl")), "shell")
 
     env_vars = shell["env_vars"]
     spec.nccl_algo = resolved_or_absent(env_vars.get("NCCL_ALGO"), "shell")
     spec.nccl_ib_disable = resolved_or_absent(safe_int(env_vars.get("NCCL_IB_DISABLE")), "shell")
-    spec.nccl_net_gdr_level = resolved_or_absent(
-        parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell"
-    )
+    spec.nccl_net_gdr_level = resolved_or_absent(parse_gdr_level(env_vars.get("NCCL_NET_GDR_LEVEL")), "shell")
 
     image_ref = shell["image_ref"]
     if image_ref:
@@ -137,5 +133,5 @@ def _module_version(module_loads: list, name: str) -> Optional[str]:
     prefix = f"{name}/"
     for module in module_loads:
         if module.startswith(prefix):
-            return module[len(prefix):]
+            return module[len(prefix) :]
     return None

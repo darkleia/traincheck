@@ -93,9 +93,7 @@ def _parse_env(config: dict) -> dict:
 def _field_from_env(env: dict, keys: tuple, source: str, confidence: float) -> Field:
     for key in keys:
         if key in env:
-            return Field(
-                value=parse_version(env[key]), status="resolved", source=source, confidence=confidence
-            )
+            return Field(value=parse_version(env[key]), status="resolved", source=source, confidence=confidence)
     return Field(value=None, status="absent", source=source)
 
 

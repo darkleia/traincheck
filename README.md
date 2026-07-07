@@ -35,11 +35,12 @@ DeepSpeed configs and Hydra-composed configs get pulled in automatically whereve
 ## usage
 
 ```bash
-# editable install for now, not on PyPI yet
-uv tool install --editable .
+pip install traincheck-lint   # or: uv tool install traincheck-lint
 
 traincheck check path/to/your/job/config
 ```
+
+Working on traincheck itself instead? `uv tool install --editable .` from a clone gets you a live-updating local install.
 
 That's it — traincheck figures out which stack you're pointing it at on its own. Add `--json` for machine-readable output, or `--probe-host` if you want it to actually check driver/kernel/OFED/peermem on the current machine (only meaningful if that machine is representative of where the job actually runs).
 

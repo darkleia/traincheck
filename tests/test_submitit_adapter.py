@@ -37,6 +37,7 @@ def test_partition_from_slurm_partition():
 def test_meta_stack_is_submitit_with_no_local_fallback_note():
     spec = _adapt()
 
+    assert spec.meta.stack is not None
     assert spec.meta.stack.status == "resolved"
     assert spec.meta.stack.value == "submitit"
     assert not spec.meta.stack.reason
@@ -53,6 +54,7 @@ def test_local_backend_is_noted_when_no_slurm_kwargs(tmp_path):
     spec = adapt_submitit(str(local_job))
 
     assert spec.nodes.value == 1
+    assert spec.meta.stack is not None
     assert spec.meta.stack.value == "submitit"
     assert spec.meta.stack.reason
     assert "local" in spec.meta.stack.reason.lower()
@@ -65,5 +67,6 @@ def test_no_update_parameters_call_leaves_fields_absent(tmp_path):
     spec = adapt_submitit(str(empty_job))
 
     assert spec.nodes.status == "absent"
+    assert spec.meta.stack is not None
     assert spec.meta.stack.value == "submitit"
     assert spec.meta.stack.reason

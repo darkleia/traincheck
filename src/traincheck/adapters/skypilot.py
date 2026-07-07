@@ -39,9 +39,7 @@ def adapt_skypilot(path: str, base_dir: str) -> JobSpec:
 
     num_nodes = doc.get("num_nodes")
     spec.nodes = resolved_or_absent(num_nodes, source)
-    world_size = (
-        num_nodes * gpus_per_node if num_nodes is not None and gpus_per_node is not None else None
-    )
+    world_size = num_nodes * gpus_per_node if num_nodes is not None and gpus_per_node is not None else None
     spec.world_size = resolved_or_absent(world_size, source)
 
     envs = doc.get("envs") or {}
@@ -87,7 +85,7 @@ def _parse_accelerators(accelerators: Any) -> tuple:
 def _image_ref(resources: dict, setup_text: str) -> Optional[str]:
     image_id = resources.get("image_id")
     if image_id:
-        return image_id[len("docker:"):] if image_id.startswith("docker:") else image_id
+        return image_id[len("docker:") :] if image_id.startswith("docker:") else image_id
 
     match = _DOCKER_PULL_RE.search(setup_text)
     return match.group(1) if match else None

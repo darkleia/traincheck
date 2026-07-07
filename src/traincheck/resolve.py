@@ -53,9 +53,7 @@ def resolve(path: str) -> JobSpec:
         _default_stack(spec, stack)
         return spec
 
-    raise UnsupportedStackError(
-        f"traincheck doesn't support this stack yet (detected: {stack.value}): {path}"
-    )
+    raise UnsupportedStackError(f"traincheck doesn't support this stack yet (detected: {stack.value}): {path}")
 
 
 def _default_stack(spec: JobSpec, stack: Stack) -> None:

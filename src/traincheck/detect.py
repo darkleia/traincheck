@@ -69,9 +69,7 @@ def detect_stack(path: Union[str, Path]) -> Stack:
 
     if p.is_dir():
         candidates = sorted(f.name for f in p.iterdir() if f.is_file())
-        raise IsADirectoryError(
-            f"{p} is a directory, not a file - pick one of its entrypoints: {candidates}"
-        )
+        raise IsADirectoryError(f"{p} is a directory, not a file - pick one of its entrypoints: {candidates}")
 
     text = p.read_text()
 

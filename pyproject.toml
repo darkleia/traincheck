@@ -69,6 +69,14 @@ traincheck = "traincheck.cli:app"
 # Example override: relax a rule for the entire project (uncomment if needed).
 # rules.TY015 = "warn"  # For invalid-argument-type, warn instead of error.
 
+[tool.ty.src]
+# examples/ holds illustrative launcher fixtures parsed via ast/regex by our
+# own extractors, not real code - they import packages (ray, torchx,
+# submitit) that aren't project dependencies on purpose. scripts/ is a
+# maintainer-only release helper that assumes a newer Python than the
+# package itself supports. Neither should be type-checked as project code.
+exclude = ["examples/", "scripts/"]
+
 [tool.ruff]
 line-length = 120
 
@@ -81,6 +89,12 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer.Argument()/typer.Option() as parameter defaults is typer's own
+# documented CLI pattern, not the mutable-default footgun B008 exists to
+# catch - tell bugbear these specific calls are safe there.
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
 
 [tool.coverage.run]
 branch = true
