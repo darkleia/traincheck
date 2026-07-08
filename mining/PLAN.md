@@ -157,11 +157,40 @@ finding in this tier can become an active ERROR/WARN rule immediately.
       NVIDIA/nccl GitHub search page 3 (`is:closed "fixed in" ...`) checked -
       all 2016-2019 legacy issues, zero new candidates, stopping here per
       the stop condition.
-- [ ] **cuda × pytorch (framework_version)** - PyTorch's own
-      release/compatibility matrix (which torch wheel pins which CUDA) -
-      still not done as its own dedicated cell (distinct from the issues
-      search above); deprioritized this pass in favor of the previously
-      untouched Tier 2/3 cells below.
+- [x] **cuda × pytorch (framework_version)** - PyTorch's own published
+      wheel index (pytorch.org/get-started/previous-versions), fetched raw
+      across 4 releases. Found and promoted `PYTORCH-CUDA-001` (ERROR):
+      torch >= 2.8.0 ships no cu118 wheel at all (2.7.x still does;
+      2.8.0/2.9.0/2.10.0 only offer cu126/cu128/cu129(2.8 only)/cu130) - a
+      precise, unambiguous vendor-matrix fact, not an incident report, so
+      no falsification search was needed.
+- [x] **NCCL/CUDA deeper archive pass** - filled in a few more remaining
+      gaps: NCCL 2.15.5's Fixed Issues (see NCCL-2155-001 above), and CUDA
+      12.9.0's own text revealed a broad, still-open miscompilation bug
+      introduced (but undocumented) at 12.8.0: Ampere-style MMA shape
+      16x8x128 miscompiled into illegal memory access on SM80/SM90/SM100
+      (A100/H100/Blackwell) - promoted as `CUDA-MMA16X8-001` (WARN).
+      Confirmed CUDA has no 12.7.0 release at all (skips 12.6 -> 12.8
+      directly). cuDNN backend notes (9.24.0/latest) already covered by
+      `CUDNN-LAYERNORM-001`; didn't re-check further archived cuDNN tags
+      this pass.
+- [x] **Lightning-AI/pytorch-lightning** (never touched before this
+      session) - found 2 real, fix-linked bugs (`lightning-21757-weightsonly-lrfinder`:
+      torch>=2.6's `weights_only=True` default breaks `LearningRateFinder`'s
+      checkpoint restore; `lightning-21556-fabric-fsdp-bf16-init`: Fabric
+      FSDP bf16-mixed precision initializes params in bf16 instead of the
+      documented fp32) - both rejected, both blocked by the same new gap:
+      no `pytorch-lightning` package-version field, compounded by no way to
+      detect specific-API usage (`LearningRateFinder`, Fabric vs Trainer).
+- [x] **NGC container release notes** (never touched before this session)
+      - found 2 real, still-open bugs tied to the container's own monthly
+      release tag rather than any framework/CUDA version baked inside it:
+      Flex Attention non-deterministic illegal memory access on THOR/H100/
+      H200 (introduced 25.12, still open through 26.06) and an NVSHMEM
+      segfault needing `NVIDIA_IMEX_CHANNELS=0` (introduced 25.10, still
+      open through 26.06). Both rejected - revealed a brand-new, distinct
+      field-gap (NGC container release tag isn't tracked at all - see
+      below), not just the already-known package-version gaps.
 
 ## Tier 2 - real bugs exist, but need one new field first
 
@@ -290,3 +319,22 @@ now-expressible trigger:
   it's a C API a training script opts into, invisible to static config
   reading either way; lowest priority of this list, may not be buildable
   at all without executing code)
+- `pytorch-lightning` package version - new gap found this session; blocks
+  both `lightning-21757-weightsonly-lrfinder` and
+  `lightning-21556-fabric-fsdp-bf16-init`. Would need adding
+  `"pytorch-lightning"`/`"lightning"` to `extractors/lockfile.py`'s
+  tracked-package set (mechanically identical to how `accelerate` and
+  `megatron-core` were added this session) - but even then, both findings
+  also need a specific-API-usage signal (`LearningRateFinder` callback,
+  Fabric vs Trainer) that's a separate, harder gap.
+- NGC container release tag (e.g. the "25.12" in
+  `nvcr.io/nvidia/pytorch:25.12-py3`) - new, structurally distinct gap
+  found this session via NGC container release notes: NVIDIA indexes its
+  own known issues by this monthly release number, not by the
+  framework/CUDA/NCCL versions baked inside the container (which
+  `extractors/image.py` already reads via env vars). Blocks
+  `ngc-pytorch-2512-flexattention-nondeterministic-oob` and
+  `ngc-pytorch-2510-nvshmem-imex-segfault` - both real, still-open,
+  authoritative findings. Worth prioritizing if more NGC-notes mining is
+  planned, since this single field would likely unblock many container-tag-
+  keyed known issues at once, not just these two.

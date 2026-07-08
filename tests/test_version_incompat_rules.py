@@ -212,6 +212,28 @@ def test_megatron_dcp_001_fires_on_torch_29_plus_when_megatron_core_is_pinned():
     assert "MEGATRON-DCP-001" not in _fired_ids(no_megatron)
 
 
+def test_pytorch_cuda_001_fires_only_when_torch_28_plus_pairs_with_old_cuda():
+    broken = _base_spec(framework_version=(2, 8, 0), cuda_version=(11, 8))
+    assert "PYTORCH-CUDA-001" in _fired_ids(broken)
+
+    also_broken = _base_spec(framework_version=(2, 9, 0), cuda_version=(12, 4))
+    assert "PYTORCH-CUDA-001" in _fired_ids(also_broken)
+
+    fine_new_cuda = _base_spec(framework_version=(2, 8, 0), cuda_version=(12, 6))
+    assert "PYTORCH-CUDA-001" not in _fired_ids(fine_new_cuda)
+
+    fine_old_torch = _base_spec(framework_version=(2, 7, 1), cuda_version=(11, 8))
+    assert "PYTORCH-CUDA-001" not in _fired_ids(fine_old_torch)
+
+
+def test_cuda_mma16x8_001_fires_on_128_plus_named_gpus_only():
+    for gpu in ("A100-SXM4-80GB", "H100", "B100", "B200", "GB200"):
+        assert "CUDA-MMA16X8-001" in _fired_ids(_base_spec(cuda_version=(12, 8), gpu_type=gpu))
+
+    assert "CUDA-MMA16X8-001" not in _fired_ids(_base_spec(cuda_version=(12, 7), gpu_type="H100"))
+    assert "CUDA-MMA16X8-001" not in _fired_ids(_base_spec(cuda_version=(12, 8), gpu_type="V100"))
+
+
 def test_cuda12x_driver_001_routes_to_needs_verification_when_driver_unresolved():
     """The host-dependent candidate this rule was promoted from should never
     become a hard pass/fail without --probe-host - it must use the engine's

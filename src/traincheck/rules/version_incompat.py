@@ -258,4 +258,38 @@ VERSION_INCOMPAT_RULES: list[Rule] = [
             "checkpointing until this is resolved upstream."
         ),
     ),
+    Rule(
+        id="PYTORCH-CUDA-001",
+        severity=Severity.ERROR,
+        condition=("framework_version is not None and framework_version >= (2, 8) and cuda_version[:2] < (12, 6)"),
+        message=(
+            "PyTorch >= 2.8.0 does not publish an official wheel for CUDA below 12.6 (confirmed on "
+            "pytorch.org/get-started/previous-versions - 2.7.x ships cu118, 2.8.0/2.9.0/2.10.0 do not). "
+            "This assumes framework_version reflects PyTorch specifically - check which framework your "
+            "config's 'framework' block actually names."
+        ),
+        fix_suggestion="Upgrade CUDA to >= 12.6, or pin PyTorch to <= 2.7.x if you must stay on an older CUDA.",
+    ),
+    Rule(
+        id="CUDA-MMA16X8-001",
+        severity=Severity.WARN,
+        condition=(
+            "cuda_version is not None and cuda_version[:2] >= (12, 8) "
+            "and gpu_type is not None "
+            "and (str(gpu_type).startswith('A100') or str(gpu_type).startswith('H100') "
+            "or str(gpu_type).startswith('B100') or str(gpu_type).startswith('B200') "
+            "or str(gpu_type).startswith('GB200'))"
+        ),
+        message=(
+            "CUDA >= 12.8 has a known miscompilation of Ampere-style MMA kernels (shape 16x8x128, GEMM "
+            "dims not divisible by 16) causing illegal memory access on SM80/SM90/SM100 (A100/H100/"
+            "Blackwell) - only applies to custom kernels using this specific MMA shape, which traincheck "
+            "cannot detect. Still open as of the last release notes checked. See "
+            "docs.nvidia.com/cuda/archive/12.9.0/cuda-toolkit-release-notes."
+        ),
+        fix_suggestion=(
+            "If using custom Ampere-style MMA kernels at this shape, compile with -Xptxas -O0 as a "
+            "workaround; no confirmed fixed version yet."
+        ),
+    ),
 ]
